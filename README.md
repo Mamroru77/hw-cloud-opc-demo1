@@ -1,139 +1,293 @@
-# 🏥 “云脉” 智慧医疗多智能体系统 | 转化医学 Multi-Agent 工作站
+# 云脉 — 智慧医疗转化医学多智能体工作站
 
-本项目是为 **“华为云杯”2026人工智能OPC（一人公司）应用创新大赛** 选题 **《场景五：智慧医疗——“从实验室到临床”的转化医学 Agent》** 开发的端到端高标演示系统。
-
-系统已全面由“单一荧光探针成像器械”升级为**通用临床转化医学多智能体工作站**，全面支持四大医学转化细分领域（医疗器械与成像分子、创新药物与生物治疗、医疗 AI 与智能诊断、创新临床术式与疗法）。
-
-系统基于多智能体协同机制，打通了“学术论文读取 -> 物理/药理/算法参数提取 -> 临床基地/场景适配 -> 商业与医学方案生成”的全链路。通过“医算子”对话顾问，用户能够以自然语言指令驱动底层逻辑，并能够以真实的 LLM 对全链路转化结果进行上下文深度问答，同时支持系统提示词的实时在线调整。
+> **"华为云杯"2026人工智能OPC应用创新大赛 · 场景五：智慧医疗——"从实验室到临床"的转化医学 Agent**
 
 ---
 
-## 🌟 系统核心亮点
+## 项目定位
 
-1. **🏥 拟物玻璃态医学科技视觉系统**：界面设计采用无菌冰灰（`#eef2f6`）为主色调，融合高斯模糊玻璃板与悬浮拟物阴影，带来极其精细的光学仪器操作台质感。
-2. **🧠 协同助手“医算子”与真实大模型接入**：右侧对话栏搭载了基于 **OpenClaw / Skill S** 多智能体开源框架与技术栈调校的智能顾问。
-   * **API 同步接入**：支持配置真实的 API Key，联调 DeepSeek、OpenAI、OpenRouter、Google Gemini 或华为云盘古大模型进行真实推理问答。
-   * **专有提示词在线编辑**：在右侧栏顶部展示“医算子”使用的 System Prompt。用户可随时点击【编辑】按钮进行在线调整修改，修改后的提示词将同步注入大模型接口，实时调优回复。
-   * **全链路上下文问答**：问答接口会自动抓取前端当前的参数、适配的机器人/GCP/PACS装机量以及渲染生成的《一期临床试验方案草案》和《商业融资计划书》的文本作为大模型上下文，实现真正具备“全链路转化结果感知”的智能问答。
-3. **📊 动态数据可视化 (多领域自适应曲线)**：
-   * **ECharts 自适应图表**：根据选定领域的物理/算法参数，自动调整渲染不同的医学图表。
-     * **Devices / Drugs (器械/新药)**：自动渲染 **Clearance PK 药代消除曲线**（指数衰减模型，实时拟合半衰期及完全清除时长）。
-     * **AI (医疗AI/SaMD)**：自动渲染 **ROC 诊断效能曲线**，动态计算 FPR vs TPR 的 AUC 面积。
-     * **Surgical (临床术式)**：自动渲染 **青年医师手术学习曲线**（学习案例数 vs 平均手术时间，展示熟练度收敛平台）。
-   * **ECharts 兼容雷达图**：从光谱匹配度、装机比率、科室适用、计算加速等维度，根据当前领域指标自适应重构雷达评估轴并对比适配方案。
-4. **📄 自定义论文导入与智能理化参数解析**：
-   * **多模式文件支持**：支持拖拽（Drag & Drop）或点击 `.pdf`、`.md`、`.txt` 等论文格式文件至上传区域。
-   * **正则理化特征解析**：对于文本类论文（`.md`/`.txt`），前端使用 `FileReader` 自动读取全文并通过正则表达式智能解析其中的理化关键值（如最佳激发光波长、排泄半衰期、半数致死量等）；对于 PDF 文件或未匹配到数值的文件，采用文件名哈希和随机特征计算出一套生理一致的拟真医学特征参数。
-   * **热切换与状态同步**：导入后新论文会呈现于列表，用户可在多篇自定义论文与预置论文间快速点击切换，底层的理化特征卡片及药代动力学曲线会无感更新，并通过新开放的 `POST /api/state` 接口实时与 Python 后端上下文状态完全同步。
-5. **🔄 前后端双模降级系统**：支持在纯前端（Mock）与后端 API（大模型联调）之间无缝切换，在无后端部署环境下依然能够进行高响应度路演。
+基于多智能体协同机制的端到端转化医学工作站，打通"学术论文 → 物理/药理/算法参数提取 → 临床场景适配 → 商业方案生成"全链路。覆盖四大转化医学细分领域：
 
+| 领域 | 代号 | 典型场景 |
+|------|------|----------|
+| 医疗器械与成像分子 | `devices` | 荧光探针、造影剂、CT/MRI设备 |
+| 创新药物与生物治疗 | `drugs` | 靶向小分子、抗体药、基因/细胞治疗 |
+| 医疗AI与智能诊断 | `ai` | 医学影像分割、AI辅助筛查(SaMD) |
+| 创新临床术式与疗法 | `surgical` | 腹腔镜/胸腔镜微创改良术式 |
 
 ---
 
-## 🔑 运行模式切换与 API Key 配置指南
+## 核心能力矩阵（对标大赛5大技术要求）
 
-为了最大化满足演示稳定性和实际大模型调用的双重需求，系统在左侧控制面板的 **“设置项”** 中集成了模式切换与 API 自动检测组件。
+### 5.1 码道平台特色能力联动
+- `pipeline.yaml` CI/CD流水线配置（代码检查 → 单元测试 → 构建 → CCE部署）
+- `checkrule.yaml` 安全检查规则（密钥泄露/NPU脱敏合规）
+- DevLog研发日志服务 + 实时流水线状态监控面板
+- Insight质量报告Tab（ECharts图表展示代码质量趋势）
 
-### 1. 运行模式手动切换
-点击左侧 **“设置项”** 标题右侧的 **【切换模式】** 按钮，可在以下两种模式之间手动切换：
-* **Demo 模式 (Mock)**：
-  * **适用场景**：本地无网络、后端服务未运行、或者仅仅进行快速路演。
-  * **工作机制**：前端直接利用内置的高保真 Mock 状态机、数学算法公式和文档生成模板响应用户，不请求外部接口。
-  * **API 输入框占位符**：显示为 `请输入 API Key`。
-* **大模型联调模式**：
-  * **适用场景**：需要启动 FastAPI 后端、连接真实大模型接口以处理自定义学术论文。
-  * **工作机制**：系统将所有的参数分析、意图提取和文档重写请求发送至 FastAPI 接口。
-  * **警告机制**：若切换至该模式而**未输入 API Key**，当前状态会红色高亮显示为 **`API未输入`**，并提示您配置密钥；输入后状态会自动转为绿色的 **`大模型已接入`**。
+### 5.2 CodeArts生态联动
+- Docker化部署方案（`Dockerfile.frontend` + `Dockerfile.backend` + `docker-compose.yml`）
+- Nginx反向代理配置，前后端统一入口
+- 代码推送至CodeArts Repo，流水线自动触发
+- CCE云容器引擎部署阶段配置
 
-### 2. API Key 在哪里填写？
-您只需在系统左侧控制面板中的 **输入框（原“输入华为云 Pangu Key”位置）** 粘贴或输入您的开发者密钥即可：
-* **Demo 模式**下，输入框提示为 `请输入 API Key`。
-* **大模型联调模式**下，输入框提示为 `请输入 API Key 联调`。
+### 5.3 私有知识库与企业规范对齐
+- ChromaDB向量数据库持久化存储（`chroma_data/`）
+- RAG检索增强：向量搜索 + 关键字降级双模
+- 知识库审核流程（上传 → 待审批 → 通过/拒绝）
+- 审计日志完整记录
+- 华为云知识湖适配器（降级至本地字典）
+- 前端：KnowledgeManager拖拽上传 + RAGReferencePanel相似度评分
 
-### 3. 提供商智能自动检测与手动选择
-当您在输入框中输入 API Key 时，系统会根据密钥前缀与特征进行**实时自动识别检测**并更新左侧状态，但若识别不准，您依然可以在下拉菜单中**手动选择**对应的提供商，系统会以您手动选择的为准：
-* 若包含 `pangu`、`huawei` 等字段：识别并显示 **`当前使用接口: Huawei Pangu`**
-* 若以 `sk-d` 开头或包含 `deepseek`：自动识别并显示 **`当前使用接口: DeepSeek`** (支持 `sk-d79d1...` 等典型 DeepSeek API 密钥)
-* 若以 `sk-or-` 开头：自动识别并显示 **`当前使用接口: OpenRouter`**
-* 若以 `sk-` 开头（非 `sk-d`）：自动识别并显示 **`当前使用接口: OpenAI`**
-* 其他情况：自动显示 **`当前使用接口: 通用 API 开发者 Key`**
+### 5.4 鸿蒙系统适配
+- INearLinkAdapter接口 + WebSocket模拟星闪协议层（API签名与真实SDK对齐，未来可零修改替换）
+- 后端WebSocket服务（`harmony_ws_service.py`）
+- NPU正则脱敏（前后端双重：患者ID/手机号/身份证号）
+- NpuSandboxPanel可视化沙箱面板
+- HarmonyDrawer组件（设备发现/协同/数据传输）
+- HarmonyWidget卡片预览
+- 响应式CSS布局 + HarmonyOS UA检测
+- 断点续传localStorage缓存
 
-### 4. 论文智能识别与领域安全校验 (Paper Validation)
-当用户通过拖拽或点击导入自定义论文时，系统会在上传阶段立即激活大模型识别校验：
-* **验证机制**：大模型会分析文件的标题 and 前几页摘要内容，判断其是否为严肃的学术文献/科研报告，且是否属于转化医学相关研究领域（医疗器械与成像分子、创新药物与生物治疗、医疗 AI 与智能诊断、创新临床术式与疗法）。
-* **拦截与警告**：若上传的文件是不相关的非医学论文（如诗歌、代码、商业散文等），大模型会检测并驳回，系统弹出带具体原因的 **警告提示框** 并拒绝导入该文件。
-* **离线降级方案**：离线或未配置密钥时，系统自动使用预设的临床医疗关键字规则匹配引擎进行校验，同样具备领域识别与警告拦截功能。
-
-### 5. 真实大模型全链路文档重构 (LLM Document Synthesis)
-在大模型模式下启动 **“Agent 全链路转化”**：
-* 整个转化成果（技术参数 -> 设备场景适配 -> 最终交付文档）均经过真实的 LLM 进行重构分析。
-* 特别是执行输出 Agent 产生的 **《临床方案/效能验证方案/术式指南》** 和 **《商业融资计划书/白皮书/推广书》** 均是由大模型分别扮演“临床试验方案专家”与“转化医学投资经理”角色，根据当前领域的专属结构化数据（如半衰期、诊断精度、学习曲线、核心器械等）**实时生成的数千字原创深度文档**（融入竞品分析与剂量/效能评估），拒绝死板的本地模板填充。
-
----
-
-## 🛠️ “医算子”全链路问答与提示词调校机制
-
-1. **System Prompt 在线调试**：
-   在系统右侧，点击 **“医算子专有提示词 (System Prompt)”** 标题右边的 **【编辑】** 按钮，提示词卡片会切换为可编辑的文本框。您可以手动修改指令（例如，要求回答必须使用英文、或以更简短的临床医学风格回答），修改后点击 **【保存】** 即可实时生效。
-2. **上下文深度感知**：
-   “医算子”在接收您的提问时，会自动拼接当前系统的物理状态（目标科室、临床医院、融资款项、以及针对选定领域的理化、算法或手术参数）以及渲染生成的两份 Markdown 文档的完整文本，作为 LLM 的 System Context。
-   例如，您可以直接提问：
-   * *“在这份一期临床方案中，最大耐受剂量/诊断精度是多少？”*
-   * *“商业计划书中提到的融资款项，有百分之多少是用于临床研究/影像验证的？”*
-   * *“根据现在的分子半衰期，计算出 12 小时后体内的残留荧光浓度百分比是多少？”*
-   * *“对于当前推荐的手术机器人/CDMO基地/PACS系统，能给我做一个竞品分析吗？”*
+### 5.5 多模型切换能力
+- BaseLLMAdapter基类 + 5大模型适配器（盘古/DeepSeek/OpenAI/GLM/Gemini）
+- **盘古真实API适配器**（`is_proxy=False`，直连华为云，非DeepSeek转发）
+- ModelRouterService降级链（pangu → deepseek → openai → glm → gemini）
+- 前端ModelSelector + Token监控 + ModelBenchmarkPanel（ECharts图表）
 
 ---
 
-## 📂 项目结构
+## 系统架构
 
 ```
-ver2_antigravity/
-├── src/                      # React 前端源代码
-│   ├── assets/               # 静态资源与组件图标
-│   ├── App.tsx               # 核心 Dashboard 代码（含“医算子”及模式切换逻辑）
-│   ├── App.css               # 前端精美拟物玻璃态样式表
-│   ├── index.css             # 全局 Neumorphic 样式定义与配色系统
-│   └── main.tsx              # React 挂载入口
-├── backend/                  # FastAPI 后端源代码
-│   ├── main.py               # 意图提取与多智能体状态机后端服务
-│   └── requirements.txt      # 后端 Python 依赖
-├── CodeArts_Agent_DevLog.md  # 加分项材料：“双人成行”研发日记与技术报告
-├── implementation_plan.md    # 项目架构与方案设计计划书
-├── task.md                   # 详细的开发 TODO 跟踪文件
-└── package.json              # 前端配置与依赖
+┌──────────────────────────────────────────────────────────────────┐
+│                        Frontend (React 19 + Vite 8)              │
+│  ┌─────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────┐ │
+│  │Model    │ │Knowledge │ │Harmony   │ │CICD      │ │NPU     │ │
+│  │Selector │ │Manager   │ │Drawer    │ │Status    │ │Sandbox │ │
+│  └────┬────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └───┬────┘ │
+│       │           │            │             │            │       │
+│  ┌────┴───────────┴────────────┴─────────────┴────────────┴────┐ │
+│  │              Zustand Stores (harmony/model/knowledge)        │ │
+│  └────────────────────────┬───────────────────────────────────┘ │
+│                           │ HTTP/WebSocket                       │
+└───────────────────────────┼─────────────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────────────┐
+│                   Backend (FastAPI + Python 3.12)               │
+│  ┌────────────┐ ┌─────────┴─┐ ┌──────────┐ ┌────────────────┐ │
+│  │ LLM        │ │Knowledge  │ │ Harmony  │ │ CICD           │ │
+│  │ Adapters   │ │ Service   │ │ WS Svc   │ │ Service        │ │
+│  │(盘古/DS/   │ │(ChromaDB+ │ │(星闪模拟)│ │(Pipeline+      │ │
+│  │ OAI/GLM/   │ │ RAG+降级) │ │          │ │ DevLog+Insight)│ │
+│  │ Gemini)    │ │           │ │          │ │                │ │
+│  └─────┬──────┘ └─────┬─────┘ └─────┬────┘ └───────┬────────┘ │
+│        │              │             │              │           │
+│  ┌─────┴──────────────┴─────────────┴──────────────┴────────┐ │
+│  │              Model Router (降级链 + Provider识别)          │ │
+│  └──────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🚀 启动与运行说明
+## 项目结构
 
-### 1. 启动前端服务 (Vite React)
-在根目录下打开终端，执行以下命令：
+```
+ver3_antigravity_CodeArts/
+├── backend/                        # FastAPI 后端
+│   ├── main.py                     # 应用入口 + 路由注册
+│   ├── requirements.txt            # Python 依赖
+│   ├── adapters/                   # LLM适配器层
+│   │   ├── base_llm_adapter.py     #   抽象基类
+│   │   ├── pangu_adapter.py        #   盘古真实API (is_proxy=False)
+│   │   ├── glm_adapter.py          #   GLM-5.0
+│   │   ├── deepseek_adapter.py     #   DeepSeek-V3
+│   │   ├── openai_adapter.py       #   GPT-4o
+│   │   └── gemini_adapter.py       #   Gemini Pro
+│   ├── infra/                      # 基础设施
+│   │   ├── chroma_client.py        #   ChromaDB向量库封装
+│   │   ├── knowledge_base.py       #   硬编码知识库(降级用)
+│   │   └── ws_server.py            #   WebSocket服务
+│   ├── models/                     # 数据模型
+│   │   ├── schemas.py              #   会话状态Schema
+│   │   ├── llm_models.py           #   LLM请求/响应模型
+│   │   ├── pipeline_status.py      #   流水线状态
+│   │   ├── model_benchmark.py      #   模型性能基准
+│   │   └── audit_log.py            #   审计日志
+│   ├── routers/                    # API路由
+│   │   ├── state.py                #   会话状态管理
+│   │   ├── analyze.py              #   论文解析
+│   │   ├── scenarios.py            #   临床场景匹配
+│   │   ├── chat.py                 #   医算子对话
+│   │   ├── docs.py                 #   文档生成
+│   │   ├── knowledge.py            #   知识库CRUD+审核
+│   │   ├── harmony.py              #   鸿蒙设备协同
+│   │   ├── cicd.py                 #   CI/CD流水线
+│   │   └── models.py               #   模型管理
+│   ├── services/                   # 业务服务
+│   │   ├── analyze_service.py      #   论文解析+领域分类
+│   │   ├── chat_service.py         #   对话上下文组装
+│   │   ├── knowledge_service.py    #   知识库+审核
+│   │   ├── rag_service.py          #   RAG向量检索+降级
+│   │   ├── model_router_service.py #   模型降级链
+│   │   ├── devlog_service.py       #   研发日志
+│   │   ├── cicd_service.py         #   CI/CD服务
+│   │   ├── harmony_ws_service.py   #   鸿蒙WebSocket
+│   │   ├── npu_sanitizer_service.py#   NPU脱敏
+│   │   └── doc_generator.py        #   文档模板引擎
+│   ├── scripts/
+│   │   └── init_knowledge.py       #   知识库初始化脚本
+│   └── tests/                      # pytest测试 (27 tests)
+│       ├── conftest.py             #   测试配置 + ChromaDB mock
+│       ├── test_analyze.py         #   论文解析测试
+│       ├── test_scenarios.py       #   场景匹配测试
+│       ├── test_knowledge.py       #   知识库测试
+│       ├── test_harmony.py         #   鸿蒙适配测试
+│       ├── test_cicd.py            #   CI/CD测试
+│       ├── test_models.py          #   模型路由测试
+│       └── test_state.py           #   状态管理测试
+├── src/                            # React 19 + TypeScript 前端
+│   ├── App.tsx                     # 主应用
+│   ├── App.css                     # 全局样式 + 响应式断点
+│   ├── main.tsx                    # 入口 (HarmonyOS UA检测)
+│   ├── components/                 # UI组件
+│   │   ├── ModelSelector.tsx       #   模型选择器
+│   │   ├── ModelBenchmarkPanel.tsx #   模型性能面板 (ECharts)
+│   │   ├── KnowledgeManager.tsx    #   知识库管理 (拖拽上传)
+│   │   ├── RAGReferencePanel.tsx   #   RAG引用面板 (相似度)
+│   │   ├── NpuSandboxPanel.tsx     #   NPU沙箱面板
+│   │   ├── HarmonyDrawer.tsx       #   鸿蒙设备抽屉
+│   │   ├── HarmonyWidget.tsx       #   鸿蒙卡片预览
+│   │   ├── CICDStatusPanel.tsx     #   CI/CD状态面板
+│   │   └── PipelineStatusWidget.tsx#   流水线状态组件
+│   ├── hooks/                      # 自定义Hooks
+│   │   ├── useWebSocket.ts         #   WebSocket连接
+│   │   ├── useModelRouter.ts       #   模型路由
+│   │   └── useVectorSearch.ts      #   向量搜索
+│   ├── stores/                     # Zustand状态管理
+│   │   ├── modelStore.ts           #   模型状态
+│   │   ├── knowledgeStore.ts       #   知识库状态
+│   │   └── harmonyStore.ts         #   鸿蒙状态
+│   └── lib/                        # 工具库
+│       ├── types.ts                #   类型定义
+│       ├── constants.ts            #   常量
+│       ├── api.ts                  #   API客户端
+│       ├── wsNearLinkSim.ts        #   星闪协议模拟
+│       └── npuSanitizer.ts         #   NPU脱敏
+├── docker/                         # 部署配置
+│   ├── Dockerfile.frontend         # 前端Nginx容器
+│   ├── Dockerfile.backend          # 后端Python容器
+│   ├── docker-compose.yml          # 本地编排
+│   ├── nginx.conf                  # Nginx配置
+│   ├── pipeline.yaml               # CI/CD流水线
+│   └── checkrule.yaml              # 安全检查规则
+├── docs/                           # 项目文档
+│   ├── CodeArts_Agent_DevLog.md    # 码道智能体研发日记 (大赛加分项)
+│   ├── implementation_plan.md      # 实现计划
+│   ├── task.md                     # 任务定义
+│   └── walkthrough.md              # 演练指南
+├── .agents/                        # CodeArts智能体规格文档
+│   ├── spec.md                     # 技术规格 (5大方向评估)
+│   ├── requirements.md             # EARS格式需求 (27条)
+│   ├── design.md                   # 技术设计
+│   ├── tasks.md                    # 编码任务规划 (50个)
+│   └── AGENTS.md                   # 智能体协议
+├── public/                         # 静态资源
+├── index.html                      # Vite入口
+├── package.json                    # 前端依赖
+├── vite.config.ts                  # 构建配置
+└── tsconfig.json                   # TypeScript配置
+```
+
+---
+
+## 快速启动
+
+### 环境要求
+- Python 3.12+ & Node.js 18+
+- 推荐使用虚拟环境
+
+### 1. 启动后端
+
 ```bash
-# 安装前端依赖 (若未安装)
-npm install --include=dev
+# 创建虚拟环境 (推荐 Python 3.12)
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate    # Linux/macOS
 
-# 运行前端开发服务器
+# 安装依赖
+pip install -r backend/requirements.txt
+
+# 初始化知识库 (可选，首次运行)
+python backend/scripts/init_knowledge.py
+
+# 启动服务
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+```
+
+### 2. 启动前端
+
+```bash
+npm install
 npm run dev
 ```
-启动后在浏览器中打开：`http://localhost:5173/`。
 
-### 2. 启动后端服务 (FastAPI)
-在 `backend` 目录下：
+浏览器打开 `http://localhost:5173/`
+
+### 3. Docker部署 (可选)
+
 ```bash
-# 安装 Python 依赖
-pip install -r requirements.txt
-
-# 运行 FastAPI 服务
-python main.py
+cd docker
+docker-compose up --build
 ```
-服务将在 `http://127.0.0.1:8000` 启动，前端会自动建立通信连接。
 
 ---
 
-## 🏆 大赛加分项材料申报
-项目根目录下附带了针对“使用码道智能体研发过程记录（10分）”的详细技术日记：
-* **[CodeArts_Agent_DevLog.md](file:///e:/HuaweiMoveData/Users/HUAWEI/Desktop/XJTLU/“华为云杯”2026人工智能OPC应用创新大赛/ver2_antigravity/CodeArts_Agent_DevLog.md)**
+## UI视觉体系
 
-该文档结构完整，记录了码道智能体协同开发者解决 React 19 兼容性问题、Vite HMR 冲突以及打字卡顿渲染优化的关键步骤和提效量化分析，可作为参赛申报附件直接提交。
+采用 **Glassmorphic + Neumorphic** 混合美学：
+- 无菌冰灰主色调 (`#eef2f6`)
+- 高斯模糊玻璃面板 + 悬浮拟物阴影
+- 四大领域自适应ECharts图表（PK代谢曲线/ROC诊断曲线/学习曲线/雷达图）
+
+---
+
+## 双模降级系统
+
+| 模式 | 条件 | 行为 |
+|------|------|------|
+| Demo (Mock) | 后端不可达 / 无API Key | 前端内置高保真Mock状态机，数学算法公式渲染 |
+| 大模型联调 | 后端运行 + API Key | 全链路LLM推理：论文解析 → 参数提取 → 文档生成 |
+
+RAG服务同样支持降级：ChromaDB不可用时自动退回关键字检索。
+
+---
+
+## 测试
+
+```bash
+# 激活虚拟环境后
+python -m pytest backend/tests/ -v
+# 27 tests, all passed
+```
+
+---
+
+## 技术栈
+
+| 层 | 技术 |
+|----|------|
+| 前端 | React 19, TypeScript, Vite 8, Zustand, ECharts |
+| 后端 | FastAPI, Python 3.12, ChromaDB, sentence-transformers |
+| 部署 | Docker, Nginx, CodeArts Pipeline |
+| 知识库 | ChromaDB (向量) + 硬编码字典 (降级) |
+| 鸿蒙适配 | WebSocket模拟星闪, NPU正则脱敏 |
+| LLM | 盘古/DeepSeek/OpenAI/GLM-5/Gemini 多模型降级链 |
+
+---
+
+## 大赛加分项
+
+- **码道智能体研发日记**: [`docs/CodeArts_Agent_DevLog.md`](docs/CodeArts_Agent_DevLog.md) — 详细记录智能体协同开发过程、9个技术Debug案例、4.5倍提效量化分析
+- **规格驱动开发**: `.agents/` 目录下完整的 spec → requirements → design → tasks 文档链路

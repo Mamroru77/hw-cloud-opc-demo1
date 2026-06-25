@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - opc-network
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    ports:
+      - "8000:8000"
+    environment:
+      - CODEARTS_PIPELINE_API_URL=${CODEARTS_PIPELINE_API_URL:-}
+      - CODEARTS_PROJECT_ID=${CODEARTS_PROJECT_ID:-}
+      - CODEARTS_AUTH_TOKEN=${CODEARTS_AUTH_TOKEN:-}
+    networks:
+      - opc-network
+
+networks:
+  opc-network:
+    driver: bridge

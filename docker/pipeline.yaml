@@ -1,0 +1,171 @@
+version: '2.0'
+name: opc-translational-medicine-pipeline
+triggers:
+  push:
+    branches: [main, master]
+stages:
+  - name: 前端构建
+    steps:
+      - name: npm-build
+        run: |
+          npm install
+          npm run build
+  - name: 后端测试
+    steps:
+      - name: pytest
+        run: |
+          pip install -r backend/requirements.txt
+          pytest backend/tests/ -v
+  - name: 安全检查
+    steps:
+      - name: codearts-check
+        uses: codearts-check
+        with:
+          fail_on_high: true
+  - name: 构建Docker镜像
+    steps:
+      - name: build-images
+        run: |
+          docker build -f docker/Dockerfile.backend -t opc-backend:${PIPELINE_ID:-latest} .
+          docker build -f docker/Dockerfile.frontend -t opc-frontend:${PIPELINE_ID:-latest} .
+  - name: 推送镜像至SWR
+    steps:
+      - name: login-swr
+        run: |
+          docker login -u ${SWR_USER} -p ${SWR_PASSWORD} ${SWR_REGISTRY}
+      - name: tag-and-push
+        run: |
+          docker tag opc-backend:${PIPELINE_ID:-latest} ${SWR_REGISTRY}/${SWR_ORG}/opc-backend:${PIPELINE_ID:-latest}
+          docker tag opc-frontend:${PIPELINE_ID:-latest} ${SWR_REGISTRY}/${SWR_ORG}/opc-frontend:${PIPELINE_ID:-latest}
+          docker push ${SWR_REGISTRY}/${SWR_ORG}/opc-backend:${PIPELINE_ID:-latest}
+          docker push ${SWR_REGISTRY}/${SWR_ORG}/opc-frontend:${PIPELINE_ID:-latest}
+  - name: 部署到CCE
+    steps:
+      - name: deploy-to-cce
+        uses: cce-deploy
+        with:
+          cluster_id: ${CCE_CLUSTER_ID}
+          namespace: opc-production
+          manifest: |
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: opc-backend
+              namespace: opc-production
+            spec:
+              replicas: 2
+              selector:
+                matchLabels:
+                  app: opc-backend
+              template:
+                metadata:
+                  labels:
+                    app: opc-backend
+                spec:
+                  containers:
+                    - name: opc-backend
+                      image: ${SWR_REGISTRY}/${SWR_ORG}/opc-backend:${PIPELINE_ID:-latest}
+                      ports:
+                        - containerPort: 8000
+                      readinessProbe:
+                        httpGet:
+                          path: /health
+                          port: 8000
+                        initialDelaySeconds: 10
+                        periodSeconds: 10
+                        failureThreshold: 3
+                      livenessProbe:
+                        httpGet:
+                          path: /health
+                          port: 8000
+                        initialDelaySeconds: 15
+                        periodSeconds: 20
+                        failureThreshold: 3
+            ---
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: opc-frontend
+              namespace: opc-production
+            spec:
+              replicas: 2
+              selector:
+                matchLabels:
+                  app: opc-frontend
+              template:
+                metadata:
+                  labels:
+                    app: opc-frontend
+                spec:
+                  containers:
+                    - name: opc-frontend
+                      image: ${SWR_REGISTRY}/${SWR_ORG}/opc-frontend:${PIPELINE_ID:-latest}
+                      ports:
+                        - containerPort: 80
+                      readinessProbe:
+                        httpGet:
+                          path: /
+                          port: 80
+                        initialDelaySeconds: 5
+                        periodSeconds: 10
+                        failureThreshold: 3
+                      livenessProbe:
+                        httpGet:
+                          path: /
+                          port: 80
+                        initialDelaySeconds: 10
+                        periodSeconds: 20
+                        failureThreshold: 3
+            ---
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: opc-backend-svc
+              namespace: opc-production
+            spec:
+              selector:
+                app: opc-backend
+              ports:
+                - port: 8000
+                  targetPort: 8000
+              type: ClusterIP
+            ---
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: opc-frontend-svc
+              namespace: opc-production
+            spec:
+              selector:
+                app: opc-frontend
+              ports:
+                - port: 80
+                  targetPort: 80
+              type: ClusterIP
+  - name: 健康检查与回滚
+    steps:
+      - name: health-check
+        run: |
+          HEALTH_PASSED=true
+          for i in $(seq 1 6); do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://opc-backend-svc.opc-production.svc.cluster.local:8000/health || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Health check passed on attempt $i"
+              break
+            fi
+            if [ "$i" = "6" ]; then
+              echo "Health check failed after 6 attempts"
+              HEALTH_PASSED=false
+            fi
+            sleep 10
+          done
+          if [ "$HEALTH_PASSED" = "false" ]; then
+            echo "Deployment unhealthy, triggering rollback..."
+            exit 1
+          fi
+      - name: auto-rollback
+        if: failure()
+        run: |
+          kubectl rollout undo deployment/opc-backend -n opc-production
+          kubectl rollout undo deployment/opc-frontend -n opc-production
+          echo "Rollback completed successfully"

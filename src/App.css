@@ -1160,3 +1160,150 @@
   color: var(--text-secondary);
   line-height: 1.5;
 }
+
+/* NPU Sanitize Compare */
+.npu-sanitize-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.04);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.npu-compare-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.npu-compare-text {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10px;
+  line-height: 1.4;
+  word-break: break-all;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.npu-compare-text.original {
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: var(--text-secondary);
+}
+
+.npu-compare-text.sanitized {
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  color: var(--accent-green);
+}
+
+/* HarmonyOS Responsive Layout */
+@media (max-width: 768px) {
+  .app-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    padding: 10px;
+    gap: 12px;
+    overflow-y: auto;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .left-panel {
+    width: 100%;
+  }
+
+  .right-panel {
+    display: none;
+  }
+
+  .harmony-fab-btn {
+    right: 20px;
+    bottom: 20px;
+  }
+
+  .harmony-drawer {
+    width: calc(100vw - 20px);
+    right: 10px;
+    top: 10px;
+    bottom: 10px;
+  }
+
+  .doc-split {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-pipeline {
+    flex-wrap: wrap;
+  }
+
+  .harmony-btn,
+  .run-btn,
+  .send-btn,
+  .tab-btn,
+  .doc-action-btn,
+  .suggestion-chip,
+  .harmony-drawer-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1280px) {
+  .app-container {
+    grid-template-columns: 280px minmax(0, 1fr) 320px;
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .harmony-drawer {
+    width: 360px;
+  }
+
+  .harmony-btn,
+  .run-btn,
+  .send-btn,
+  .tab-btn,
+  .doc-action-btn,
+  .suggestion-chip,
+  .harmony-drawer-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (min-width: 1281px) {
+  .app-container {
+    grid-template-columns: 320px minmax(0, 1fr) 380px;
+  }
+
+  .harmony-drawer {
+    width: 420px;
+  }
+
+  .harmony-btn,
+  .run-btn,
+  .send-btn,
+  .tab-btn,
+  .doc-action-btn,
+  .suggestion-chip,
+  .harmony-drawer-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* HarmonyOS UA Detection class */
+.harmony-os .harmony-card-tag {
+  font-size: 9px;
+}
+
+.harmony-os .harmony-btn {
+  border-radius: 20px;
+}

@@ -1,0 +1,57 @@
+version: '1.0'
+name: opc-translational-medicine-checkrules
+description: OPC转化医学Agent系统安全检查规则集
+
+rules:
+  - id: SQL_INJECTION
+    name: SQL注入检测
+    severity: high
+    description: 检测代码中潜在的SQL注入漏洞
+    patterns:
+      - "execute\\(.*\\+.*\\)"
+      - "raw_sql\\("
+      - "cursor\\.execute\\(.*%s"
+    action: block
+
+  - id: XSS_DETECTION
+    name: XSS跨站脚本检测
+    severity: high
+    description: 检测代码中潜在的XSS攻击向量
+    patterns:
+      - "innerHTML\\s*="
+      - "document\\.write\\("
+      - "v-html\\s*="
+      - "dangerouslySetInnerHTML"
+    action: block
+
+  - id: SENSITIVE_DATA_LEAK
+    name: 敏感信息泄露检测
+    severity: high
+    description: 检测代码中可能的敏感信息明文泄露
+    patterns:
+      - "password\\s*=\\s*[\"'][^\"']+[\"']"
+      - "api_key\\s*=\\s*[\"'][^\"']+[\"']"
+      - "secret\\s*=\\s*[\"'][^\"']+[\"']"
+      - "token\\s*=\\s*[\"'][^\"']+[\"']"
+    action: block
+
+  - id: HARDCODED_KEY
+    name: 硬编码密钥检测
+    severity: high
+    description: 检测代码中硬编码的密钥和凭证
+    patterns:
+      - "AKIA[0-9A-Z]{16}"
+      - "-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----"
+      - "sk-[a-zA-Z0-9]{32,}"
+    action: block
+
+gates:
+  - name: high-severity-gate
+    description: 高危漏洞门禁 - 阻断部署
+    condition:
+      fail_on_high: true
+      block_deployment: true
+    on_check_unavailable:
+      allow_merge: true
+      mark_unchecked: true
+      label: "未检查"

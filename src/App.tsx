@@ -8,6 +8,10 @@ import {
 import * as echarts from 'echarts';
 import './App.css';
 import { motion, AnimatePresence } from 'framer-motion';
+import CICDStatusPanel from './components/CICDStatusPanel';
+import PipelineStatusWidget from './components/PipelineStatusWidget';
+import ModelBenchmarkPanel from './components/ModelBenchmarkPanel';
+import { useModelStore } from './stores/modelStore';
 
 // Custom ECharts wrapper for React 19 compatibility (bypassing findDOMNode)
 function CustomEChart({ option, style }: { option: any, style?: React.CSSProperties }) {
@@ -369,6 +373,9 @@ function App() {
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
   const [isPromptCollapsed, setIsPromptCollapsed] = useState(false);
   const [modelProvider, setModelProvider] = useState('DeepSeek');
+
+  // Model store for token metrics
+  const modelStore = useModelStore();
 
   // Auto-detect and pre-select provider on API Key paste
   useEffect(() => {
@@ -1327,6 +1334,17 @@ function App() {
         const data = await res.json();
         
         setChatMessages(prev => [...prev, { sender: 'assistant', text: data.reply }]);
+
+        if (data.input_tokens !== undefined || data.output_tokens !== undefined || data.latency_ms !== undefined) {
+          modelStore.updateTokenMetrics({
+            input_tokens: data.input_tokens || 0,
+            output_tokens: data.output_tokens || 0,
+            latency_ms: data.latency_ms || 0,
+            model_name: data.model_name,
+            provider_id: data.provider_id,
+          });
+        }
+
         if (data.state_updated) {
           setState(data.current_state);
           setRagReferences(FRONTEND_KNOWLEDGE_BASE[data.current_state.domain || 'devices']);
@@ -2052,20 +2070,23 @@ function App() {
         {/* Mode Status Indicator */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>当前状态:</span>
-          <span 
-            className="api-key-indicator"
-            style={{ 
-              fontSize: '10px', 
-              fontWeight: 700, 
-              color: isOnlineMode ? (apiKey ? 'var(--accent-green)' : 'var(--accent-red)') : 'var(--text-secondary)',
-              backgroundColor: isOnlineMode ? (apiKey ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)') : 'rgba(163, 177, 198, 0.1)',
-              padding: '3px 10px',
-              borderRadius: '20px',
-              border: `1px solid ${isOnlineMode ? (apiKey ? 'rgba(16, 185, 129, 0.2)' : 'rgba(244, 63, 94, 0.2)') : 'rgba(163, 177, 198, 0.15)'}`
-            }}
-          >
-            {isOnlineMode ? (apiKey ? `大模型联调模式 (${detectProvider(apiKey)})` : 'API未输入') : 'Demo 模式 (Mock)'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <PipelineStatusWidget />
+            <span 
+              className="api-key-indicator"
+              style={{ 
+                fontSize: '10px', 
+                fontWeight: 700, 
+                color: isOnlineMode ? (apiKey ? 'var(--accent-green)' : 'var(--accent-red)') : 'var(--text-secondary)',
+                backgroundColor: isOnlineMode ? (apiKey ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)') : 'rgba(163, 177, 198, 0.1)',
+                padding: '3px 10px',
+                borderRadius: '20px',
+                border: `1px solid ${isOnlineMode ? (apiKey ? 'rgba(16, 185, 129, 0.2)' : 'rgba(244, 63, 94, 0.2)') : 'rgba(163, 177, 198, 0.15)'}`
+              }}
+            >
+              {isOnlineMode ? (apiKey ? `大模型联调模式 (${detectProvider(apiKey)})` : 'API未输入') : 'Demo 模式 (Mock)'}
+            </span>
+          </div>
         </div>
 
         {/* Api key input simulating actual cloud integration */}
@@ -2126,6 +2147,9 @@ function App() {
             </div>
           )}
         </div>
+
+        <CICDStatusPanel />
+        <ModelBenchmarkPanel />
 
         <span className="section-title" style={{ textAlign: 'left', display: 'block' }}>选择预置学术论文</span>
         {PRESET_PAPERS.map(paper => (

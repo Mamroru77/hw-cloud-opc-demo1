@@ -253,3 +253,5 @@
    * 在 `backend/main.py` 的架构中，我们将“技术理解 Agent”、“场景匹配 Agent”与“执行输出 Agent”三个独立的协作单元抽象为符合 OpenClaw 协议的独立任务（Tasks）。通过后端内存总线（State Bus）实现各 Agent 状态（物理化学参数、落地场景评估、最终文档交付物）的实时串联与路由控制，极大降低了系统耦合度。
 2. **场景微调与工具链库 (Skill S Plugins)**：
    * 我们将不同医疗领域的特定操作（如 Devices 的药代 PK 曲线指数拟合、AI 的 ROC 数据计算、Surgical 的学习曲线平台拟合）封装为符合 Skill S 插件规范的独立技能包（Skill Packs）。在微调顾问对话中，“医算子”能够通过语义匹配动态加载并调用对应的 Skill 技能插件，实现自然语言对系统理化指标的瞬间修改和同步重绘。
+| 2026-06-26 00:42:33 | test-pipeline | ✅ success | https://example.com/artifact.zip | 120.0s |
+| 2026-06-26 00:45:10 | test-pipeline | ✅ success | https://example.com/artifact.zip | 120.0s |

@@ -49,3 +49,20 @@ Desktop.ini
 *.pem
 .env.local
 .env.production
+
+# Pip temp residuals
+pip-build-tracker-*
+pip-ephem-wheel-cache-*
+pip-install-*
+pip_wheels_*
+pip-target-*
+tmp*
+
+# pytest
+.pytest_cache/
+
+# CodeArts agent state (local)
+.agent_state.md
+
+# Cache
+*.whl
