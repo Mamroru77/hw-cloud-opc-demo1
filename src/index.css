@@ -1,0 +1,169 @@
+/* 🏥 Medical-Tech Design System & Global Styles - Sterile Light Neumorphism Theme */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Unified Neumorphic Color Tokens (Sterile Clinical Ice-Grey Theme) */
+  --bg-primary: #eef2f6;    /* Sterile ice-grey base background */
+  --bg-secondary: #eef2f6;  /* Matches background exactly for extruded Neumorphism */
+  --bg-tertiary: #d8dee9;   /* Hovered/Active state */
+  
+  --accent-cyan: #0ea5e9;   /* Vibrant clinical cyan/blue - highly surgical! */
+  --accent-green: #10b981;  /* Emerald safety green */
+  --accent-red: #f43f5e;    /* Clinical warning rose/red */
+  --accent-yellow: #f59e0b; /* Amber */
+  
+  --text-primary: #1e293b;   /* Slate-900 for premium readability */
+  --text-secondary: #475569; /* Slate-600 */
+  --text-muted: #64748b;     /* Slate-500 */
+  
+  /* Neumorphic Shadows calculated based on #eef2f6 (slightly cooler bluish shade) */
+  --neumo-dark: #d1d7e0;
+  --neumo-light: #ffffff;
+  
+  --neumo-shadow-flat: 9px 9px 18px var(--neumo-dark), -9px -9px 18px var(--neumo-light);
+  --neumo-shadow-inset: inset 6px 6px 12px var(--neumo-dark), inset -6px -6px 12px var(--neumo-light);
+  --neumo-shadow-btn: 5px 5px 10px var(--neumo-dark), -5px -5px 10px var(--neumo-light);
+  --neumo-shadow-btn-active: inset 4px 4px 8px var(--neumo-dark), inset -4px -4px 8px var(--neumo-light);
+  
+  /* Hybrid Glass-Neumorphism overlay (translucent with matching tint) */
+  --glass-bg: rgba(238, 242, 246, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --border-color: rgba(0, 0, 0, 0.05);
+  
+  /* Color RGBA variables for soft glows and transparent borders */
+  --accent-cyan-rgba-hover: rgba(14, 165, 233, 0.08);
+  --accent-cyan-rgba-glow: rgba(14, 165, 233, 0.15);
+  --accent-cyan-rgba-soft: rgba(14, 165, 233, 0.05);
+  --accent-cyan-rgba-avatar: rgba(14, 165, 233, 0.2);
+  --accent-cyan-rgba-icon: rgba(14, 165, 233, 0.3);
+  
+  --accent-green-rgba-glow: rgba(16, 185, 129, 0.15);
+  --accent-green-rgba-soft: rgba(16, 185, 129, 0.05);
+  --accent-green-rgba-avatar: rgba(16, 185, 129, 0.2);
+  
+  /* Shadows and Glows */
+  --shadow-cyan-glow: 0 0 15px rgba(14, 165, 233, 0.15);
+  --shadow-green-glow: 0 0 15px rgba(16, 185, 129, 0.15);
+  
+  /* Typography - using Inter as primary for crisp medical workstation interface */
+  --font-sans: 'Inter', 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  font-family: var(--font-sans);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-primary);
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(14, 165, 233, 0.03) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.02) 0%, transparent 40%);
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-cyan);
+}
+
+/* Base Component Styles */
+* {
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Glass-Neumorphic Panel Utility */
+.glass-panel {
+  background: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--neumo-shadow-flat);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel:hover {
+  border-color: rgba(14, 165, 233, 0.12);
+  box-shadow: var(--neumo-shadow-flat), 0 0 15px rgba(14, 165, 233, 0.02);
+}
+
+/* Micro-animations */
+@keyframes pulse-cyan {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(14, 165, 233, 0.2);
+    border-color: rgba(14, 165, 233, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(14, 165, 233, 0.45);
+    border-color: rgba(14, 165, 233, 0.5);
+  }
+}
+
+@keyframes pulse-green {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
+    border-color: rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(16, 185, 129, 0.45);
+    border-color: rgba(16, 185, 129, 0.5);
+  }
+}
+
+.glow-cyan {
+  animation: pulse-cyan 3s infinite;
+}
+
+.glow-green {
+  animation: pulse-green 3s infinite;
+}
+
+/* Typography styles */
+.gradient-text-cyan {
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-text-green {
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-green) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Custom interactive elements */
+button {
+  cursor: pointer;
+  outline: none;
+  font-family: var(--font-sans);
+  transition: all 0.2s ease-in-out;
+}
+
+input, textarea, select {
+  font-family: var(--font-sans);
+  transition: all 0.2s ease-in-out;
+}
