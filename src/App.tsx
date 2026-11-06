@@ -3,14 +3,13 @@ import {
   Activity, FileText, Brain, Cpu, Send, Upload, 
   CheckCircle2, ArrowRight, Sparkles, AlertCircle,
   TrendingUp, Compass, Settings, ShieldCheck, Download,
-  Smartphone, Share2
+  Smartphone, Share2, ChevronDown, ChevronUp, Trash2
 } from 'lucide-react';
 import * as echarts from 'echarts';
 import './App.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import CICDStatusPanel from './components/CICDStatusPanel';
 import PipelineStatusWidget from './components/PipelineStatusWidget';
-import ModelBenchmarkPanel from './components/ModelBenchmarkPanel';
 import { useModelStore } from './stores/modelStore';
 
 // Custom ECharts wrapper for React 19 compatibility (bypassing findDOMNode)
@@ -371,8 +370,11 @@ function App() {
     "作为“云脉”系统的协同助手“医算子”，你需要结合学术论文中的理化与药代指标，推导并验证临床可行性及商业可行性。微调指令应联动触发技术理解、场景匹配与执行输出三个智能体，实现全链路参数与生成文档的一致性更新。用户提问时，请基于当前提取的分子物理化学参数、适配的手术机器人及生成的临床方案和商业计划书，给予专业、详实的解答。"
   );
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
-  const [isPromptCollapsed, setIsPromptCollapsed] = useState(false);
+  const [isPromptCollapsed, setIsPromptCollapsed] = useState(true);
   const [modelProvider, setModelProvider] = useState('DeepSeek');
+  const [deletedPresetIds, setDeletedPresetIds] = useState<Set<string>>(new Set());
+
+  const visiblePresetPapers = PRESET_PAPERS.filter(p => !deletedPresetIds.has(p.id));
 
   // Model store for token metrics
   const modelStore = useModelStore();
@@ -415,6 +417,7 @@ function App() {
     isCustom: boolean,
     params: typeof DEFAULT_STATE
   }>>([]);
+  const allVisiblePapers = [...visiblePresetPapers, ...customPapers];
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -740,7 +743,12 @@ function App() {
 
   const handleDeletePaper = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setCustomPapers(prev => prev.filter(p => p.id !== id));
+
+    if (id.endsWith('-default')) {
+      setDeletedPresetIds(prev => new Set(prev).add(id));
+    } else {
+      setCustomPapers(prev => prev.filter(p => p.id !== id));
+    }
     
     setRunCache(prev => {
       const copy = { ...prev };
@@ -749,8 +757,19 @@ function App() {
     });
 
     if (selectedPaperId === id) {
-      const defaultId = PRESET_PAPERS[0].id;
-      handleSelectPaper(defaultId, PRESET_PAPERS[0].params);
+      const remaining = allVisiblePapers.filter(p => p.id !== id);
+      if (remaining.length > 0) {
+        handleSelectPaper(remaining[0].id, remaining[0].params);
+      } else {
+        setPaperSelected(false);
+      }
+    }
+  };
+
+  const handleRestorePresetPapers = () => {
+    setDeletedPresetIds(new Set());
+    if (PRESET_PAPERS.length > 0) {
+      handleSelectPaper(PRESET_PAPERS[0].id, PRESET_PAPERS[0].params);
     }
   };
   
@@ -1079,7 +1098,7 @@ function App() {
     setPipelineStep(1); // Stage 1: Technical Understanding Agent
     setCurrentTab('params');
     
-    let paperTitle = PRESET_PAPERS[0].title;
+    let paperTitle = visiblePresetPapers[0]?.title || '未知论文';
     let paperContent = "新型近红外二区（NIR-II）荧光探针在早期微小肝癌术中导航切除手术中的应用研究。该探针最佳激发光为790nm，发射光为820nm，在小鼠及人体排泄半衰期约为2.4小时，完全清除周期为24小时。毒理学测试表明半数致死量LD50为50mg/kg，最大耐受剂量MTD为5.0mg/kg。目标主治科室为肝胆外科。";
     
     if (selectedPaperId.endsWith('-default')) {
@@ -1703,7 +1722,7 @@ function App() {
           trigger: 'axis',
           formatter: '误诊率 (FPR): {b}<br/>真阳性率 (TPR): {c}',
           backgroundColor: '#ffffff',
-          borderColor: 'rgba(14, 165, 233, 0.2)',
+          borderColor: 'rgba(10, 89, 247, 0.2)',
           textStyle: { color: '#313a46' }
         },
         grid: { left: '10%', right: '5%', bottom: '15%', top: '15%' },
@@ -1729,18 +1748,18 @@ function App() {
           smooth: true,
           showSymbol: false,
           lineStyle: {
-            color: '#0ea5e9',
+            color: '#0A59F7',
             width: 3,
             shadowBlur: 10,
-            shadowColor: 'rgba(14, 165, 233, 0.3)'
+            shadowColor: 'rgba(10, 89, 247, 0.3)'
           },
           areaStyle: {
             color: {
               type: 'linear',
               x: 0, y: 0, x2: 0, y2: 1,
               colorStops: [
-                { offset: 0, color: 'rgba(14, 165, 233, 0.15)' },
-                { offset: 1, color: 'rgba(14, 165, 233, 0.0)' }
+                { offset: 0, color: 'rgba(10, 89, 247, 0.15)' },
+                { offset: 1, color: 'rgba(10, 89, 247, 0.0)' }
               ]
             }
           }
@@ -1762,7 +1781,7 @@ function App() {
           trigger: 'axis',
           formatter: '手术执行: 第 {b} 例<br/>平均用时: {c} 分钟',
           backgroundColor: '#ffffff',
-          borderColor: 'rgba(14, 165, 233, 0.2)',
+          borderColor: 'rgba(10, 89, 247, 0.2)',
           textStyle: { color: '#313a46' }
         },
         grid: { left: '10%', right: '5%', bottom: '15%', top: '15%' },
@@ -1825,7 +1844,7 @@ function App() {
           trigger: 'axis',
           formatter: '时间: {b}h<br/>体内浓度: {c}%',
           backgroundColor: '#ffffff',
-          borderColor: 'rgba(14, 165, 233, 0.2)',
+          borderColor: 'rgba(10, 89, 247, 0.2)',
           textStyle: { color: '#313a46' }
         },
         grid: { left: '8%', right: '5%', bottom: '15%', top: '15%' },
@@ -1914,7 +1933,7 @@ function App() {
       backgroundColor: 'transparent',
       tooltip: {
         backgroundColor: '#ffffff',
-        borderColor: 'rgba(14, 165, 233, 0.2)',
+        borderColor: 'rgba(10, 89, 247, 0.2)',
         textStyle: { color: '#313a46' }
       },
       legend: {
@@ -1951,7 +1970,7 @@ function App() {
             areaStyle: { color: 'rgba(0, 0, 0, 0.01)' }
           };
         }),
-        color: ['#0ea5e9', '#10b981', '#f43f5e']
+        color: ['#0A59F7', '#10b981', '#f43f5e']
       }]
     };
   }, [matchedRobots, state.domain]);
@@ -2010,7 +2029,7 @@ function App() {
         minHeight: '320px',
         color: 'var(--text-secondary)',
         background: 'rgba(255, 255, 255, 0.3)',
-        border: '1px dashed rgba(14, 165, 233, 0.2)',
+        border: '1px dashed rgba(10, 89, 247, 0.2)',
         borderRadius: '20px',
         padding: '30px',
         textAlign: 'center',
@@ -2021,10 +2040,10 @@ function App() {
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           style={{ marginBottom: '16px' }}
         >
-          <Sparkles size={40} style={{ color: 'var(--accent-cyan)', opacity: 0.8 }} />
+          <Sparkles size={50} style={{ color: 'var(--accent-cyan)', opacity: 0.8 }} />
         </motion.div>
         <h3 style={{ fontSize: '15px', color: 'var(--text-primary)', marginBottom: '8px', fontWeight: 600 }}>{title}</h3>
-        <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '420px', lineHeight: 1.6 }}>{desc}</p>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '420px', lineHeight: 1.6, background: 'rgba(10, 89, 247, 0.06)', padding: '8px 14px', borderRadius: '8px' }}>{desc}</p>
       </div>
     );
   };
@@ -2057,9 +2076,9 @@ function App() {
               alignItems: 'center',
               gap: '4px',
               transition: 'all 0.2s ease',
-              backgroundColor: isOnlineMode ? 'rgba(14, 165, 233, 0.1)' : 'rgba(163, 177, 198, 0.15)',
+              backgroundColor: isOnlineMode ? 'rgba(10, 89, 247, 0.1)' : 'rgba(163, 177, 198, 0.15)',
               color: isOnlineMode ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-              border: `1px solid ${isOnlineMode ? 'rgba(14, 165, 233, 0.3)' : 'rgba(163, 177, 198, 0.25)'}`
+              border: `1px solid ${isOnlineMode ? 'rgba(10, 89, 247, 0.3)' : 'rgba(163, 177, 198, 0.25)'}`
             }}
           >
             <Settings size={10} />
@@ -2090,7 +2109,7 @@ function App() {
         </div>
 
         {/* Api key input simulating actual cloud integration */}
-        <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <input 
             type="password" 
             placeholder={isOnlineMode ? "请输入 API Key" : "请输入 API Key 联调"}
@@ -2103,7 +2122,7 @@ function App() {
             }}
           />
           {/* Model Provider Selection Dropdown */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left', marginTop: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left', marginTop: '8px' }}>
             <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>模型提供商 (检测与选择):</span>
             <select
               className="chat-input"
@@ -2149,76 +2168,86 @@ function App() {
         </div>
 
         <CICDStatusPanel />
-        <ModelBenchmarkPanel />
 
-        <span className="section-title" style={{ textAlign: 'left', display: 'block' }}>选择预置学术论文</span>
-        {PRESET_PAPERS.map(paper => (
+        <span className="section-title" style={{ textAlign: 'left', display: 'block' }}>学术论文（可增删）</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {allVisiblePapers.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontSize: '12px' }}>
+            <p>暂无论文，请上传或恢复默认论文</p>
+            <button
+              onClick={handleRestorePresetPapers}
+              style={{
+                marginTop: '8px',
+                padding: '6px 14px',
+                borderRadius: '9999px',
+                border: '1px solid var(--accent-cyan)',
+                background: 'rgba(10, 89, 247, 0.08)',
+                color: 'var(--accent-cyan)',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              恢复默认论文
+            </button>
+          </div>
+        )}
+        {allVisiblePapers.map(paper => {
+          const isPreset = paper.id.endsWith('-default');
+          return (
           <div 
             key={paper.id}
             className={`paper-card ${selectedPaperId === paper.id ? 'active' : ''}`}
             onClick={() => handleSelectPaper(paper.id, paper.params)}
           >
-            <h3>{paper.title}</h3>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+              <h3 style={{ flex: 1, margin: 0 }}>{paper.title}</h3>
+              <button
+                onClick={(e) => handleDeletePaper(e, paper.id)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  borderRadius: '4px',
+                  transition: 'all 0.2s',
+                  flexShrink: 0,
+                  width: '24px',
+                  height: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent-red)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
+                title="删除此论文"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
             <div className="paper-meta">
-              <span>发表年份: {paper.year}</span>
-              <span style={{ 
-                color: paper.domain === 'devices' ? 'var(--accent-cyan)' : 
-                       paper.domain === 'drugs' ? 'var(--accent-green)' : 
-                       paper.domain === 'ai' ? 'var(--accent-cyan)' : 'var(--accent-yellow)' 
-              }}>
-                {paper.recommend}
-              </span>
+              {isPreset ? (
+                <>
+                  <span>发表年份: {(paper as typeof PRESET_PAPERS[0]).year}</span>
+                  <span className={`pill-tag pill-tag--${(paper as typeof PRESET_PAPERS[0]).domain}`}>
+                    {(paper as typeof PRESET_PAPERS[0]).recommend}
+                  </span>
+                </>
+              ) : (
+                <span className={`pill-tag pill-tag--${paper.params.domain}`}>
+                  领域: {paper.params.domain === 'drugs' ? '生物医药' : 
+                         paper.params.domain === 'ai' ? '医疗 AI' : 
+                         paper.params.domain === 'surgical' ? '临床术式' : '器械与成像'}
+                </span>
+              )}
             </div>
           </div>
-        ))}
+          );
+        })}
+        </div>
 
-        {/* Custom Papers List */}
-        {customPapers.length > 0 && (
-          <>
-            <span className="section-title" style={{ textAlign: 'left', display: 'block', marginTop: '16px' }}>已上传自定义论文</span>
-            {customPapers.map(paper => (
-              <div 
-                key={paper.id}
-                className={`paper-card ${selectedPaperId === paper.id ? 'active' : ''}`}
-                onClick={() => handleSelectPaper(paper.id, paper.params)}
-                style={{ position: 'relative' }}
-              >
-                <h3 style={{ paddingRight: '24px' }}>{paper.title}</h3>
-                <div className="paper-meta">
-                  <span style={{ color: 'var(--accent-cyan)' }}>
-                    领域: {paper.params.domain === 'drugs' ? '生物医药' : 
-                           paper.params.domain === 'ai' ? '医疗 AI' : 
-                           paper.params.domain === 'surgical' ? '临床术式' : '器械与成像'}
-                  </span>
-                </div>
-                <button
-                  onClick={(e) => handleDeletePaper(e, paper.id)}
-                  style={{
-                    position: 'absolute',
-                    top: '10px',
-                    right: '10px',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent-red)'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-muted)'}
-                  title="删除此论文"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </>
-        )}
-
-        <div 
+        <div
           className={`upload-area ${isDragging ? 'dragging' : ''}`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -2228,8 +2257,8 @@ function App() {
             cursor: 'pointer',
             transition: 'all 0.2s ease-in-out',
             border: isDragging ? '2px dashed var(--accent-cyan)' : '2px dashed var(--border-color)',
-            backgroundColor: isDragging ? 'rgba(14, 165, 233, 0.08)' : 'rgba(255, 255, 255, 0.4)',
-            boxShadow: isDragging ? '0 0 15px rgba(14, 165, 233, 0.2)' : 'none',
+            backgroundColor: isDragging ? 'rgba(10, 89, 247, 0.08)' : 'rgba(255, 255, 255, 0.4)',
+            boxShadow: isDragging ? '0 0 15px rgba(10, 89, 247, 0.2)' : 'none',
             marginTop: '16px'
           }}
         >
@@ -2246,12 +2275,12 @@ function App() {
           />
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <button 
             className="run-btn" 
             disabled={!paperSelected || isAnalyzing}
             onClick={startTranslation}
-            style={{ flex: 1.5, cursor: (!paperSelected || isAnalyzing) ? 'not-allowed' : 'pointer', opacity: (!paperSelected || isAnalyzing) ? 0.6 : 1 }}
+            style={{ flex: 1.5, cursor: (!paperSelected || isAnalyzing) ? 'not-allowed' : 'pointer', opacity: (!paperSelected || isAnalyzing) ? 0.6 : 1, whiteSpace: 'nowrap' }}
           >
             {isAnalyzing ? (
               <>
@@ -2271,7 +2300,8 @@ function App() {
             onClick={handleClearResults}
             style={{
               flex: 1,
-              padding: '12px 10px',
+              padding: '0 10px',
+              height: '48px',
               borderRadius: '14px',
               background: 'rgba(239, 68, 68, 0.1)',
               color: 'var(--accent-red)',
@@ -2284,7 +2314,8 @@ function App() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '4px',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap',
             }}
           >
             <span>清空结果</span>
@@ -2376,7 +2407,7 @@ function App() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', height: '100%' }}
+                    style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '16px', height: '100%' }}
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', textAlign: 'left' }}>
                       <div>
@@ -2558,7 +2589,7 @@ function App() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', height: '100%' }}
+                    style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '16px', height: '100%' }}
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
@@ -2736,8 +2767,8 @@ function App() {
         {/* Collapsible System Prompt Widget */}
         <div 
           style={{
-            background: 'rgba(14, 165, 233, 0.04)',
-            border: '1px solid rgba(14, 165, 233, 0.1)',
+            background: 'rgba(10, 89, 247, 0.04)',
+            border: '1px solid rgba(10, 89, 247, 0.1)',
             borderRadius: '12px',
             padding: '10px 12px',
             margin: '0 24px 16px 24px',
@@ -2753,20 +2784,22 @@ function App() {
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button
-                onClick={() => setIsPromptCollapsed(!isPromptCollapsed)}
+                onClick={() => { setIsPromptCollapsed(!isPromptCollapsed); if (isPromptCollapsed) setIsEditingPrompt(true); else setIsEditingPrompt(false); }}
                 style={{
                   background: 'none',
                   border: 'none',
                   color: 'var(--accent-cyan)',
-                  fontSize: '10px',
-                  fontWeight: 600,
                   cursor: 'pointer',
-                  padding: '2px 6px',
+                  padding: '2px 4px',
                   borderRadius: '4px',
-                  backgroundColor: 'rgba(14, 165, 233, 0.08)'
+                  backgroundColor: 'rgba(10, 89, 247, 0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'transform 0.2s ease'
                 }}
               >
-                {isPromptCollapsed ? '展开' : '收起'}
+                {isPromptCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
               </button>
               {!isPromptCollapsed && (
                 <button
@@ -2780,7 +2813,7 @@ function App() {
                     cursor: 'pointer',
                     padding: '2px 6px',
                     borderRadius: '4px',
-                    backgroundColor: 'rgba(14, 165, 233, 0.08)'
+                    backgroundColor: 'rgba(10, 89, 247, 0.08)'
                   }}
                 >
                   {isEditingPrompt ? '保存' : '编辑'}
@@ -2802,7 +2835,7 @@ function App() {
                   lineHeight: 1.4,
                   padding: '6px',
                   borderRadius: '6px',
-                  border: '1px solid rgba(14, 165, 233, 0.2)',
+                  border: '1px solid rgba(10, 89, 247, 0.2)',
                   background: 'rgba(255,255,255,0.85)',
                   color: 'var(--text-primary)',
                   resize: 'none',
@@ -2890,7 +2923,7 @@ function App() {
         title="鸿蒙端云协同控制台"
       >
         <div className="harmony-fab-pulse"></div>
-        <Smartphone size={20} />
+        <Smartphone size={22} />
         <span className="harmony-fab-badge">HarmonyOS</span>
       </button>
 

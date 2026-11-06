@@ -2,44 +2,56 @@
 
 .app-container {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr) 360px;
+  grid-template-columns: 300px minmax(0, 1fr) 300px;
   height: 100vh;
   width: 100vw;
   background-color: var(--bg-primary);
   overflow: hidden;
-  padding: 20px;
-  gap: 24px;
+  padding: 16px;
+  gap: 16px;
 }
 
-/* Base Panel Styling: Floating Frosted Glass Slab */
+/* Base Panel Styling: Clean Card with Soft Shadow */
 .left-panel, .viz-panel, .right-panel {
-  background: rgba(255, 255, 255, 0.68);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 24px;
-  box-shadow: 
-    0 10px 30px -10px rgba(163, 177, 198, 0.35),
-    0 1px 2px rgba(255, 255, 255, 0.8) inset,
-    -6px -6px 16px rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   display: flex;
   flex-direction: column;
   padding: 24px;
-  overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-x: hidden;
+  transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .left-panel:hover, .viz-panel:hover, .right-panel:hover {
-  border-color: rgba(14, 165, 233, 0.25);
-  box-shadow: 
-    0 15px 35px -8px rgba(163, 177, 198, 0.45),
-    0 1px 2px rgba(255, 255, 255, 0.95) inset,
-    0 0 20px rgba(14, 165, 233, 0.05);
+  border-color: rgba(10, 89, 247, 0.25);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
 }
 
 /* Sidebar Specifics (Left Column) */
 .left-panel {
   overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.left-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.left-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.left-panel::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.left-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .panel-header {
@@ -74,13 +86,13 @@
 
 /* Paper Selection Card */
 .paper-card {
-  background: rgba(255, 255, 255, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 16px;
   padding: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 0;
   cursor: pointer;
-  box-shadow: 0 4px 15px -3px rgba(163, 177, 198, 0.15);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -88,15 +100,15 @@
   transform: translateY(-2px);
   background: rgba(255, 255, 255, 0.8);
   border-color: var(--accent-cyan);
-  box-shadow: 0 8px 20px -4px rgba(14, 165, 233, 0.15);
+  box-shadow: 0 8px 20px -4px rgba(10, 89, 247, 0.15);
 }
 
 .paper-card.active {
   background: rgba(255, 255, 255, 0.95);
   border-color: var(--accent-cyan);
   box-shadow: 
-    0 0 0 2px rgba(14, 165, 233, 0.1),
-    0 6px 15px -4px rgba(14, 165, 233, 0.15);
+    0 0 0 2px rgba(10, 89, 247, 0.1),
+    0 6px 15px -4px rgba(10, 89, 247, 0.15);
 }
 
 .paper-card h3 {
@@ -111,8 +123,25 @@
   font-size: 11px;
   color: var(--text-muted);
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  margin-top: 12px;
 }
+
+.pill-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 12px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.pill-tag--devices { background: rgba(10, 89, 247, 0.1); color: #0950D9; }
+.pill-tag--drugs { background: rgba(16, 185, 129, 0.1); color: #059669; }
+.pill-tag--ai { background: rgba(6, 182, 212, 0.1); color: #0891b2; }
+.pill-tag--surgical { background: rgba(245, 158, 11, 0.1); color: #d97706; }
 
 /* Upload Area */
 .upload-area {
@@ -140,29 +169,31 @@
 
 /* Primary Medical Run Button */
 .run-btn {
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  background: linear-gradient(135deg, #0A59F7 0%, #0950D9 100%);
   color: #ffffff;
   border: none;
-  border-radius: 14px;
-  padding: 14px;
+  border-radius: 9999px;
+  padding: 0 14px;
+  height: 48px;
   font-weight: 600;
   font-size: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 8px 20px -6px rgba(14, 165, 233, 0.5);
+  box-shadow: 0 8px 24px rgba(10, 89, 247, 0.35);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
 }
 
 .run-btn:hover:not(:disabled) {
   transform: translateY(-2px) scale(1.01);
-  box-shadow: 0 12px 25px -4px rgba(14, 165, 233, 0.6);
+  box-shadow: 0 8px 24px rgba(10, 89, 247, 0.35);
 }
 
 .run-btn:active:not(:disabled) {
   transform: translateY(0) scale(1);
-  box-shadow: 0 4px 10px -2px rgba(14, 165, 233, 0.4);
+  box-shadow: 0 4px 10px -2px rgba(10, 89, 247, 0.4);
 }
 
 .run-btn:disabled {
@@ -205,7 +236,7 @@
   background: rgba(255, 255, 255, 0.9);
   border-color: var(--accent-cyan);
   box-shadow: 
-    0 8px 20px -4px rgba(14, 165, 233, 0.15),
+    0 8px 20px -4px rgba(10, 89, 247, 0.15),
     0 0 0 1px var(--accent-cyan);
 }
 
@@ -233,8 +264,8 @@
 
 .agent-card.active .agent-avatar {
   color: var(--accent-cyan);
-  background: rgba(14, 165, 233, 0.08);
-  border-color: rgba(14, 165, 233, 0.2);
+  background: rgba(10, 89, 247, 0.08);
+  border-color: rgba(10, 89, 247, 0.2);
 }
 
 .agent-card.completed .agent-avatar {
@@ -323,7 +354,7 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+  background: linear-gradient(90deg, #0A59F7, #38bdf8);
   border-radius: 3px 3px 0 0;
 }
 
@@ -441,7 +472,7 @@
   border-color: var(--accent-cyan);
   color: var(--accent-cyan);
   background: #ffffff;
-  box-shadow: 0 4px 10px -2px rgba(14, 165, 233, 0.2);
+  box-shadow: 0 4px 10px -2px rgba(10, 89, 247, 0.2);
 }
 
 /* Chat & OpenClaw Console (Right Column) */
@@ -457,12 +488,12 @@
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: rgba(14, 165, 233, 0.08);
-  border: 1px solid rgba(14, 165, 233, 0.2);
+  background: rgba(10, 89, 247, 0.08);
+  border: 1px solid rgba(10, 89, 247, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.05);
+  box-shadow: 0 4px 12px rgba(10, 89, 247, 0.05);
 }
 
 .chat-title h3 {
@@ -486,6 +517,7 @@
   gap: 16px;
 }
 
+/* 需求5.3: 聊天气泡内边距 - 约束值 padding: 12px 16px (垂直12px 水平16px) */
 .message-bubble {
   max-width: 85%;
   padding: 12px 16px;
@@ -505,9 +537,9 @@
 
 .message-bubble.user {
   align-self: flex-end;
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  background: linear-gradient(135deg, #0A59F7 0%, #0950D9 100%);
   color: #ffffff;
-  box-shadow: 0 6px 15px -4px rgba(14, 165, 233, 0.3);
+  box-shadow: 0 6px 15px -4px rgba(10, 89, 247, 0.3);
 }
 
 /* Suggestion Chips */
@@ -524,9 +556,9 @@
   background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.9);
   color: var(--text-secondary);
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 10px;
   font-weight: 500;
   box-shadow: 0 2px 5px rgba(163, 177, 198, 0.1);
   transition: all 0.2s;
@@ -536,7 +568,7 @@
   border-color: var(--accent-cyan);
   color: var(--accent-cyan);
   background: #ffffff;
-  box-shadow: 0 4px 8px -2px rgba(14, 165, 233, 0.15);
+  box-shadow: 0 4px 8px -2px rgba(10, 89, 247, 0.15);
 }
 
 /* Chat Input Console */
@@ -563,25 +595,25 @@
 .chat-input:focus {
   border-color: var(--accent-cyan);
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+  box-shadow: 0 0 0 3px rgba(10, 89, 247, 0.1);
 }
 
 .send-btn {
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  background: linear-gradient(135deg, #0A59F7 0%, #0950D9 100%);
   border: none;
   color: #ffffff;
   width: 40px;
   height: 40px;
-  border-radius: 12px;
+  border-radius: 9999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 10px rgba(14, 165, 233, 0.25);
+  box-shadow: 0 4px 10px rgba(10, 89, 247, 0.25);
 }
 
 .send-btn:hover {
   transform: scale(1.02);
-  box-shadow: 0 6px 15px rgba(14, 165, 233, 0.35);
+  box-shadow: 0 6px 15px rgba(10, 89, 247, 0.35);
 }
 
 .send-btn:active {
@@ -609,7 +641,7 @@
 .param-item:hover {
   background: rgba(255, 255, 255, 0.95);
   border-color: var(--accent-cyan);
-  box-shadow: 0 6px 15px -4px rgba(14, 165, 233, 0.15);
+  box-shadow: 0 6px 15px -4px rgba(10, 89, 247, 0.15);
 }
 
 .param-label {
@@ -655,7 +687,7 @@
 .match-item-card:hover {
   background: rgba(255, 255, 255, 0.95);
   border-color: var(--accent-cyan);
-  box-shadow: 0 8px 20px -4px rgba(14, 165, 233, 0.15);
+  box-shadow: 0 8px 20px -4px rgba(10, 89, 247, 0.15);
 }
 
 .match-item-left {
@@ -744,18 +776,18 @@
 /* HarmonyOS Floating Action Button (FAB) */
 .harmony-fab-btn {
   position: fixed;
-  right: 400px;
+  right: calc(300px + 16px + 8px);
   bottom: 24px;
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  background: linear-gradient(135deg, #0A59F7 0%, #0950D9 100%);
   color: #ffffff;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 20px rgba(234, 88, 12, 0.4);
+  box-shadow: 0 4px 12px rgba(10, 89, 247, 0.3);
   cursor: pointer;
   z-index: 100;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -763,7 +795,7 @@
 
 .harmony-fab-btn:hover {
   transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 10px 25px rgba(234, 88, 12, 0.55);
+  box-shadow: 0 10px 25px rgba(10, 89, 247, 0.45);
 }
 
 .harmony-fab-btn:active {
@@ -781,7 +813,7 @@
   right: 0;
   bottom: 0;
   border-radius: 50%;
-  border: 2px solid rgba(234, 88, 12, 0.5);
+  border: 2px solid rgba(10, 89, 247, 0.5);
   animation: fab-pulsing 2s infinite ease-out;
   pointer-events: none;
 }
@@ -823,11 +855,12 @@
   right: 20px;
   bottom: 20px;
   width: 420px;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(28px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 24px;
-  box-shadow: -10px 0 40px -10px rgba(15, 23, 42, 0.15);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 32px;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(64px);
+  -webkit-backdrop-filter: blur(64px);
   z-index: 210;
   display: flex;
   flex-direction: column;
@@ -878,8 +911,8 @@
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.05em;
-  background: rgba(234, 88, 12, 0.1);
-  color: #ea580c;
+  background: rgba(10, 89, 247, 0.1);
+  color: #0950D9;
   padding: 2px 8px;
   border-radius: 6px;
   text-transform: uppercase;
@@ -913,11 +946,11 @@
 
 /* Distributed Widget Preview (ArkUI Mockup) */
 .harmony-widget-preview {
-  background: linear-gradient(145deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.95) 100%);
-  border-radius: 16px;
-  padding: 16px;
+  background: #18181A;
+  border-radius: 24px;
+  padding: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
   color: #ffffff;
 }
 
@@ -933,7 +966,7 @@
 .widget-logo {
   font-size: 10px;
   font-weight: 700;
-  color: #ea580c;
+  color: #0950D9;
 }
 
 .widget-device {
@@ -955,30 +988,30 @@
 }
 
 .widget-cell {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-  padding: 8px;
+  background: #272729;
+  border: none;
+  border-radius: 16px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
 }
 
 .widget-cell .cell-label {
-  font-size: 9px;
-  color: rgba(255, 255, 255, 0.45);
-  margin-bottom: 2px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 4px;
 }
 
 .widget-cell .cell-val {
-  font-size: 12px;
-  font-weight: 700;
-  color: #ffffff;
+  font-size: 18px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* Harmony Buttons */
 .harmony-btn {
   padding: 10px 16px;
-  border-radius: 12px;
+  border-radius: 9999px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -991,14 +1024,20 @@
 }
 
 .harmony-btn.primary {
-  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  background: #0A59F7;
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25);
+  box-shadow: 0 8px 20px rgba(10, 89, 247, 0.3);
 }
 
 .harmony-btn.primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(234, 88, 12, 0.35);
+  opacity: 0.9;
+  box-shadow: 0 8px 20px rgba(10, 89, 247, 0.35);
+}
+
+.harmony-btn.primary:active:not(:disabled) {
+  transform: scale(0.95);
+  box-shadow: 0 4px 12px rgba(10, 89, 247, 0.25);
 }
 
 .harmony-btn.primary:disabled {
@@ -1007,24 +1046,31 @@
 }
 
 .harmony-btn.secondary {
-  background: rgba(255, 255, 255, 0.85);
+  background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  color: var(--text-secondary);
+  color: #182431;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .harmony-btn.secondary:hover {
-  background: #ffffff;
-  color: var(--text-primary);
+  background: #f9fafb;
   border-color: rgba(0, 0, 0, 0.15);
+}
+
+.harmony-btn.secondary:active {
+  transform: scale(0.95);
 }
 
 /* NPU Sandbox styles */
 .npu-status-badge {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
-  color: var(--accent-green);
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  padding: 2px 10px;
+  border-radius: 9999px;
 }
 
 .npu-sandbox-container {
@@ -1257,13 +1303,17 @@
 
 @media (min-width: 769px) and (max-width: 1280px) {
   .app-container {
-    grid-template-columns: 280px minmax(0, 1fr) 320px;
-    padding: 16px;
-    gap: 16px;
+    grid-template-columns: 280px minmax(0, 1fr) 280px;
+    padding: 12px;
+    gap: 12px;
   }
 
   .harmony-drawer {
-    width: 360px;
+    width: 340px;
+  }
+
+  .harmony-fab-btn {
+    right: calc(280px + 12px + 8px);
   }
 
   .harmony-btn,
@@ -1280,11 +1330,15 @@
 
 @media (min-width: 1281px) {
   .app-container {
-    grid-template-columns: 320px minmax(0, 1fr) 380px;
+    grid-template-columns: 320px minmax(0, 1fr) 320px;
   }
 
   .harmony-drawer {
-    width: 420px;
+    width: 400px;
+  }
+
+  .harmony-fab-btn {
+    right: calc(320px + 16px + 8px);
   }
 
   .harmony-btn,

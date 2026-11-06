@@ -66,6 +66,14 @@ export interface ChatMessage {
   text: string;
 }
 
+export interface TokenMetrics {
+  input_tokens: number;
+  output_tokens: number;
+  latency_ms: number;
+  model_name?: string;
+  provider_id?: string;
+}
+
 export interface RunCacheEntry {
   pipelineStep: number;
   currentTab: string;

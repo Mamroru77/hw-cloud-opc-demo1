@@ -1,8 +1,10 @@
+import os
 import logging
 from typing import Optional
 
 from backend.adapters.codearts_pipeline_adapter import CodeArtsPipelineAdapter
 from backend.models.pipeline_status import PipelineStatus
+from backend.providers.demo_data_provider import DemoDataProvider
 
 logger = logging.getLogger(__name__)
 
@@ -10,8 +12,16 @@ logger = logging.getLogger(__name__)
 class CICDService:
     def __init__(self):
         self.adapter = CodeArtsPipelineAdapter()
+        self.demo_provider = DemoDataProvider()
+
+    def _is_demo_mode(self) -> bool:
+        token = os.getenv("CODEARTS_AUTH_TOKEN", "")
+        return not token
 
     async def query_latest_pipeline(self) -> dict:
+        if self._is_demo_mode():
+            return {"status": "ok", "data": self.demo_provider.get_pipeline_status()}
+
         result = await self.adapter.get_latest_pipeline()
         if result is None:
             return {
@@ -31,6 +41,9 @@ class CICDService:
         return {"status": "ok", "data": pipeline_status.model_dump()}
 
     async def query_build_logs(self, limit: int = 10) -> dict:
+        if self._is_demo_mode():
+            return {"status": "ok", "data": self.demo_provider.get_build_logs()}
+
         results = await self.adapter.get_build_logs(limit=limit)
         if not results:
             return {
@@ -53,6 +66,9 @@ class CICDService:
         return {"status": "ok", "data": logs}
 
     async def query_quality_report(self) -> dict:
+        if self._is_demo_mode():
+            return {"status": "ok", "data": self.demo_provider.get_quality_report()}
+
         result = await self.adapter.get_quality_report()
         if result is None:
             return {

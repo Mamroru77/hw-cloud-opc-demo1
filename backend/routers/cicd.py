@@ -1,26 +1,25 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 
 from backend.services.cicd_service import CICDService
-from backend.services.devlog_service import DevLogService
+from backend.handlers.webhook_handler import WebhookHandler
 
 router = APIRouter(prefix="/api/cicd", tags=["cicd"])
 
 cicd_service = CICDService()
-devlog_service = DevLogService()
+webhook_handler = WebhookHandler()
 
 
 @router.post("/webhook")
 async def handle_webhook(request: Request):
-    body = await request.json()
-    pipeline_name = body.get("pipeline_name", "unknown")
-    status = body.get("status", "unknown")
-    artifact_url = body.get("artifact_url", "")
-    duration = body.get("duration_sec", 0)
-
-    devlog_service.append_pipeline_record(
-        pipeline_name, status, artifact_url, duration
-    )
-    return {"status": "ok"}
+    raw_body = await request.body()
+    signature = request.headers.get("X-CodeArts-Signature")
+    result = webhook_handler.handle_callback(raw_body, signature)
+    if "error" in result:
+        if result["error"] == "unauthorized":
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+        if result["error"] == "invalid_payload":
+            raise HTTPException(status_code=400, detail="Invalid payload")
+    return result
 
 
 @router.get("/pipeline/status")

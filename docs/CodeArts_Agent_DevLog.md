@@ -20,10 +20,10 @@
 
 在长链路、高消耗的研发中，为了防止由于 API 配额、连接中断或进程异常导致的工作进度丢失，我们与智能体共同执行了**“状态驱动开发”**协议。
 
-在项目根目录中，智能体持续维护并同步更新了 [.agent_state.md](file:///e:/HuaweiMoveData/Users/HUAWEI/Desktop/XJTLU/“华为云杯”2026人工智能OPC应用创新大赛/ver2_antigravity/.agent_state.md)：
+在项目根目录中，智能体持续维护并同步更新了 [.agent_state.md](../.agent_state.md)：
 * **结构化 Check-list**：明确划分 Phase 1 到 Phase 4 任务，每一个子任务完成后均有确定的 `[x]` 标记，拒绝无序 of 零散修改。
 * **开发驻留点 (Save Point)**：在发生重构、攻坚复杂 Bug 之前，智能体会在状态文件中写入“当前上下文”与“下一步计划”。
-* **断点续接**：当对话环境因网络超时或配额调整重新启动时，智能体首要动作是读取 [.agent_state.md](file:///e:/HuaweiMoveData/Users/HUAWEI/Desktop/XJTLU/“华为云杯”2026人工智能OPC应用创新大赛/ver2_antigravity/.agent_state.md)，从而实现零人工干预的“一字不差无缝续接”。
+* **断点续接**：当对话环境因网络超时或配额调整重新启动时，智能体首要动作是读取 [.agent_state.md](../.agent_state.md)，从而实现零人工干预的“一字不差无缝续接”。
 
 ---
 
@@ -43,7 +43,7 @@
 * **问题现象**：在前端高频修改样式和 React 代码并触发热更新 (HMR) 时，控制台偶发抛出 `ReferenceError: $RefreshSig$ is not defined`，导致页面假死。
 * **原因分析**：Vite 在热更新时会依赖 React Refresh Preamble。如果在 HMR 局部模块还没执行完时组件就强行挂载，就会由于 `$RefreshReg$` 和 `$RefreshSig$` 的声明时机不匹配抛出异常。
 * **智能体解决方案**：
-  智能体直接在 [index.html](file:///e:/HuaweiMoveData/Users/HUAWEI/Desktop/XJTLU/“华为云杯”2026人工智能OPC应用创新大赛/ver2_antigravity/index.html) 的 `<head>` 顶部注入了优雅的 Mock 降级机制：
+  智能体直接在 [index.html](../index.html) 的 `<head>` 顶部注入了优雅的 Mock 降级机制：
   ```html
   <script>
     if (!window.$RefreshReg$) window.$RefreshReg$ = () => {};
@@ -68,7 +68,7 @@
 * **问题现象**：一人公司的应用往往需要支持快速路演。如果网络不稳、或目标机器上没有配置 Python/大模型 Key，Demo 会直接报错挂死。
 * **原因分析**：前端数据如果强绑定于 `/api/` 返回，则对后台的依赖性过高。
 * **智能体解决方案**：
-  在 [App.tsx](file:///e:/HuaweiMoveData/Users/HUAWEI/Desktop/XJTLU/“华为云杯”2026人工智能OPC应用创新大赛/ver2_antigravity/src/App.tsx) 中，智能体部署了一套自动探活机制：
+  在 [App.tsx](../src/App.tsx) 中，智能体部署了一套自动探活机制：
   * 系统挂载时尝试向 `http://127.0.0.1:8000/api/state` 发送握手请求。
   * 若请求成功，激活“后端大模型模式”，打通真实的意图解析、光谱兼容算法及文档 PDF 动态渲染。
   * 若请求超时或拒绝连接，在控制台静默发出 Warning，并自动激活“高保真客户端 Mock 模式”。该模式在前端通过 JS 代码复刻了后端的所有意图解析状态机、药代指数衰减曲线计算公式、文档合成引擎。
@@ -177,7 +177,7 @@
 
 通过码道智能体与人类开发者的紧密协作，本项目展现了 **“提示词即工程” (Prompt as Engineering)** 的巨大潜力。系统不仅具备扎实的医学背景逻辑支撑，而且在 UI 美学与操作流畅性上达到了产品级水准。
 
-本项目的开发日志已在根目录下通过 [.agent_state.md](file:///e:/HuaweiMoveData/Users/HUAWEI/Desktop/XJTLU/“华为云杯”2026人工智能OPC应用创新大赛/ver2_antigravity/.agent_state.md) 完整固化，充分证明了在 OPC 时代，智能体协同将成为驱动前沿创新项目落地不可或缺的新质生产力。
+本项目的开发日志已在根目录下通过 [.agent_state.md](../.agent_state.md) 完整固化，充分证明了在 OPC 时代，智能体协同将成为驱动前沿创新项目落地不可或缺的新质生产力。
 
 
 ## 📝 六、 Phase 5 阶段升级：通用转化医学多领域架构升级的协同开发记录

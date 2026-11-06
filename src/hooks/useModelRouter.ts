@@ -1,12 +1,7 @@
 import { useState, useCallback } from 'react';
+import type { TokenMetrics } from '../lib/types';
 
-export interface TokenMetrics {
-  input_tokens: number;
-  output_tokens: number;
-  latency_ms: number;
-  model_name?: string;
-  provider_id?: string;
-}
+export type { TokenMetrics };
 
 export interface UseModelRouterReturn {
   tokenMetrics: TokenMetrics | null;

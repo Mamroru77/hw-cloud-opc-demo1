@@ -2,7 +2,7 @@
  
 > **文档版本**: v1.0  
 > **生成日期**: 2026-06-25  
-> **基于代码版本**: ver2_antigravity_CodeArts  
+> **基于代码版本**: harmony-web  
 > **核心文件**: `src/App.tsx` (2750行), `backend/main.py` (1110行)
 
 ---

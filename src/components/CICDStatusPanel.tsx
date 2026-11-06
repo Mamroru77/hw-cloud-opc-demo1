@@ -184,30 +184,33 @@ const CICDStatusPanel: React.FC<CICDStatusPanelProps> = ({ backendUrl = 'http://
     background: 'none',
     border: 'none',
     outline: 'none',
+    whiteSpace: 'nowrap',
   });
 
   return (
     <div style={{
-      background: 'rgba(255,255,255,0.45)',
-      border: '1px solid var(--border-color)',
+      background: 'rgba(255,255,255,0.72)',
+      border: '1px solid rgba(255,255,255,0.35)',
       borderRadius: '16px',
       padding: '16px',
       marginBottom: '16px',
-      backdropFilter: 'blur(10px)',
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      boxShadow: '0 8px 30px rgba(0,0,0,0.04)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-        <Activity size={16} style={{ color: 'var(--accent-cyan)' }} />
-        <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <Activity size={16} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
+        <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap' }}>
           CI/CD 构建状态
         </h3>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
-          <button style={tabStyle('status')} onClick={() => setActiveTab('status')}>构建</button>
-          <button style={tabStyle('quality')} onClick={() => setActiveTab('quality')}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <FileBarChart size={12} />质量报告
-            </span>
-          </button>
-        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+        <button style={tabStyle('status')} onClick={() => setActiveTab('status')}>构建</button>
+        <button style={tabStyle('quality')} onClick={() => setActiveTab('quality')}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+            <FileBarChart size={12} />质量报告
+          </span>
+        </button>
       </div>
 
       {activeTab === 'status' && (

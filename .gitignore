@@ -64,5 +64,20 @@ tmp*
 # CodeArts agent state (local)
 .agent_state.md
 
+# CodeArts IDE agent local state
+.codeartsdoer/
+.arts/
+.claude/
+
 # Cache
 *.whl
+
+# 运行时生成的流水线日志（真文档在 docs/ 下）
+/CodeArts_Agent_DevLog.md
+
+# 签名证书与私钥
+*.p12
+*.csr
+*.cer
+*.jks
+*.keystore

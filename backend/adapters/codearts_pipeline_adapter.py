@@ -24,6 +24,17 @@ class CodeArtsPipelineAdapter:
             "X-Auth-Token": self.auth_token,
         }
 
+    def _handle_auth_error(self, resp: httpx.Response) -> None:
+        code = resp.status_code
+        if code == 401:
+            logger.warning("Auth token expired or invalid (401)")
+        elif code == 403:
+            logger.warning("Access denied, check project_id permissions (403)")
+        elif code == 429:
+            logger.warning("API rate limit exceeded (429)")
+        else:
+            logger.warning(f"Pipeline API returned status {code}")
+
     async def get_latest_pipeline(self) -> Optional[dict]:
         if not self.auth_token:
             return None
@@ -33,12 +44,15 @@ class CodeArtsPipelineAdapter:
                     f"{self.base_url}/{self.project_id}/runs",
                     headers=self._headers(),
                 )
-                resp.raise_for_status()
-                data = resp.json()
-                runs = data.get("runs") or data.get("data") or []
-                if runs:
-                    return runs[0]
-                return None
+                if 200 <= resp.status_code < 300:
+                    data = resp.json()
+                    runs = data.get("runs") or data.get("data") or []
+                    if runs:
+                        return runs[0]
+                    return None
+                else:
+                    self._handle_auth_error(resp)
+                    return None
         except Exception as e:
             logger.warning(f"CodeArts Pipeline API unavailable: {e}")
             return None
@@ -53,9 +67,12 @@ class CodeArtsPipelineAdapter:
                     params={"limit": limit},
                     headers=self._headers(),
                 )
-                resp.raise_for_status()
-                data = resp.json()
-                return data.get("runs") or data.get("data") or []
+                if 200 <= resp.status_code < 300:
+                    data = resp.json()
+                    return data.get("runs") or data.get("data") or []
+                else:
+                    self._handle_auth_error(resp)
+                    return []
         except Exception as e:
             logger.warning(f"CodeArts Pipeline API unavailable: {e}")
             return []
@@ -73,8 +90,11 @@ class CodeArtsPipelineAdapter:
                     f"{insight_url}/{self.project_id}/quality",
                     headers=self._headers(),
                 )
-                resp.raise_for_status()
-                return resp.json()
+                if 200 <= resp.status_code < 300:
+                    return resp.json()
+                else:
+                    self._handle_auth_error(resp)
+                    return None
         except Exception as e:
             logger.warning(f"CodeArts Insight API unavailable: {e}")
             return None

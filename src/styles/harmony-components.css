@@ -1,0 +1,274 @@
+/* ========== HarmonyOS 风格组件样式类 ========== */
+/* 仅在 .harmony-os 作用域下生效 */
+/* 所有CSS变量引用均提供降级默认值，确保非HarmonyOS环境下不生效 */
+
+/* --- 面板容器 --- */
+.harmony-os .hmos-panel {
+  background: var(--hmos-color-bg-panel, rgba(255, 255, 255, 0.95));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--hmos-color-border, rgba(0, 0, 0, 0.05));
+  border-radius: var(--hmos-radius-xl, 20px);
+  box-shadow: var(--hmos-shadow-md, 0 4px 16px rgba(0, 0, 0, 0.08));
+  padding: var(--hmos-spacing-lg, 16px);
+}
+
+.harmony-os .hmos-panel:hover {
+  border-color: var(--hmos-color-border-focus, rgba(0, 125, 255, 0.40));
+  box-shadow: var(--hmos-shadow-md, 0 4px 16px rgba(0, 0, 0, 0.08)),
+              var(--hmos-shadow-focus, 0 0 0 2px rgba(0, 125, 255, 0.20));
+}
+
+/* --- 卡片 --- */
+.harmony-os .hmos-card {
+  background: var(--hmos-color-bg-card, #FFFFFF);
+  border: 1px solid var(--hmos-color-border, rgba(0, 0, 0, 0.05));
+  border-radius: var(--hmos-radius-lg, 16px);
+  box-shadow: var(--hmos-shadow-sm, 0 1px 6px rgba(0, 0, 0, 0.06));
+  padding: var(--hmos-spacing-lg, 16px);
+  transition: all var(--hmos-transition-normal, 250ms cubic-bezier(0.2, 0, 0, 1));
+}
+
+.harmony-os .hmos-card:hover,
+.harmony-os .hmos-card.selected {
+  border-color: var(--hmos-color-border-focus, rgba(0, 125, 255, 0.40));
+  box-shadow: var(--hmos-shadow-sm, 0 1px 6px rgba(0, 0, 0, 0.06)),
+              var(--hmos-shadow-focus, 0 0 0 2px rgba(0, 125, 255, 0.20));
+}
+
+/* --- 按钮 --- */
+.harmony-os .hmos-btn {
+  border-radius: var(--hmos-radius-sm, 8px);
+  font-weight: var(--hmos-font-weight-medium, 500);
+  transition: all var(--hmos-transition-fast, 150ms cubic-bezier(0.2, 0, 0, 1));
+  box-shadow: none;
+  cursor: pointer;
+  outline: none;
+}
+
+.harmony-os .hmos-btn:hover {
+  background: var(--hmos-color-primary-hover, #0066E0);
+  box-shadow: var(--hmos-shadow-sm, 0 1px 6px rgba(0, 0, 0, 0.06));
+}
+
+.harmony-os .hmos-btn:active {
+  background: var(--hmos-color-primary-active, #0055CC);
+  transform: scale(0.98);
+}
+
+/* --- 输入框 --- */
+.harmony-os .hmos-input {
+  border-radius: var(--hmos-radius-sm, 8px);
+  border: 1px solid var(--hmos-color-border, rgba(0, 0, 0, 0.05));
+  transition: all var(--hmos-transition-fast, 150ms cubic-bezier(0.2, 0, 0, 1));
+  padding: var(--hmos-spacing-sm, 8px) var(--hmos-spacing-md, 12px);
+  font-family: var(--hmos-font-family, 'Inter', -apple-system, sans-serif);
+}
+
+.harmony-os .hmos-input:focus {
+  border-color: var(--hmos-color-primary, #007DFF);
+  box-shadow: var(--hmos-shadow-focus, 0 0 0 2px rgba(0, 125, 255, 0.20));
+  outline: none;
+}
+
+/* --- 标签页 --- */
+.harmony-os .hmos-tab {
+  border-radius: var(--hmos-radius-sm, 8px) var(--hmos-radius-sm, 8px) 0 0;
+  font-weight: var(--hmos-font-weight-medium, 500);
+  transition: color var(--hmos-transition-fast, 150ms cubic-bezier(0.2, 0, 0, 1));
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+.harmony-os .hmos-tab.active {
+  color: var(--hmos-color-primary, #007DFF);
+}
+
+.harmony-os .hmos-tab.active::after {
+  background: var(--hmos-color-primary, #007DFF);
+  height: 2px;
+  border-radius: 1px;
+}
+
+/* --- Widget卡片 --- */
+.harmony-os .hmos-widget {
+  background: var(--hmos-color-bg-card, #FFFFFF);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--hmos-color-border, rgba(0, 0, 0, 0.05));
+  border-radius: var(--hmos-radius-xl, 20px);
+  box-shadow: var(--hmos-shadow-md, 0 4px 16px rgba(0, 0, 0, 0.08));
+  padding: var(--hmos-spacing-lg, 16px);
+  transition: all var(--hmos-transition-normal, 250ms cubic-bezier(0.2, 0, 0, 1));
+}
+
+.harmony-os .hmos-widget:hover {
+  border-color: var(--hmos-color-border-focus, rgba(0, 125, 255, 0.40));
+  box-shadow: var(--hmos-shadow-md, 0 4px 16px rgba(0, 0, 0, 0.08)),
+              var(--hmos-shadow-focus, 0 0 0 2px rgba(0, 125, 255, 0.20));
+}
+
+/* --- 抽屉 --- */
+.harmony-os .hmos-drawer {
+  background: var(--hmos-color-bg-card, #FFFFFF);
+  border-radius: var(--hmos-radius-xl, 20px) 0 0 var(--hmos-radius-xl, 20px);
+  box-shadow: var(--hmos-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.10));
+  transition: transform var(--hmos-transition-slow, 400ms cubic-bezier(0.2, 0, 0, 1));
+}
+
+.harmony-os .hmos-drawer-overlay {
+  background: rgba(0, 0, 0, 0.4);
+  transition: opacity var(--hmos-transition-normal, 250ms cubic-bezier(0.2, 0, 0, 1));
+}
+
+/* --- HarmonyWidget 内部样式（非作用域，通用样式） --- */
+.hmos-widget-root {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.harmony-os .hmos-widget-root {
+  background: var(--hmos-color-bg-card, #FFFFFF);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--hmos-color-border, rgba(0, 0, 0, 0.05));
+  box-shadow: var(--hmos-shadow-md, 0 4px 16px rgba(0, 0, 0, 0.08));
+}
+
+.hmos-widget-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-cyan, #0A59F7), #a855f7, var(--accent-cyan, #0A59F7));
+  border-radius: 20px 20px 0 0;
+}
+
+.hmos-widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.hmos-widget-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hmos-widget-logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent-cyan, #0A59F7), #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.harmony-os .hmos-widget-logo {
+  background: linear-gradient(135deg, var(--hmos-color-primary, #007DFF), #a855f7);
+  border-radius: var(--hmos-radius-xs, 4px);
+}
+
+.hmos-widget-brand-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.harmony-os .hmos-widget-brand-text {
+  color: var(--hmos-color-text-primary, #191919);
+}
+
+.hmos-widget-sync {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hmos-widget-sync-text {
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.hmos-widget-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.harmony-os .hmos-widget-title {
+  color: var(--hmos-color-text-primary, #191919);
+  font-size: var(--hmos-font-size-body, 14px);
+}
+
+.hmos-widget-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.hmos-widget-cell {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.harmony-os .hmos-widget-cell {
+  background: var(--hmos-color-bg-hover, rgba(0, 125, 255, 0.06));
+  border-radius: var(--hmos-radius-md, 12px);
+}
+
+.hmos-widget-cell-label {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 2px;
+}
+
+.harmony-os .hmos-widget-cell-label {
+  color: var(--hmos-color-text-hint, #999999);
+  font-size: var(--hmos-font-size-caption, 12px);
+}
+
+.hmos-widget-cell-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.harmony-os .hmos-widget-cell-value {
+  color: var(--hmos-color-text-primary, #191919);
+  font-size: var(--hmos-font-size-body, 14px);
+}
+
+.hmos-widget-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.harmony-os .hmos-widget-footer {
+  color: var(--hmos-color-text-hint, #999999);
+}

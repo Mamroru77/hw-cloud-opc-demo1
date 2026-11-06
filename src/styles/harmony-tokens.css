@@ -1,0 +1,75 @@
+/* ========== HarmonyOS Design Token ========== */
+/* 仅在检测到HarmonyOS环境时通过 .harmony-os 作用域激活 */
+/* 降级策略：非HarmonyOS环境下这些Token不生效，使用index.css默认值 */
+
+.harmony-os {
+  /* === 色彩体系 (HarmonyOS Design Color) === */
+  --hmos-color-primary: #0A59F7;
+  --hmos-color-primary-light: #E8F0FE;
+  --hmos-color-primary-hover: #0950D9;
+  --hmos-color-primary-active: #0847BF;
+
+  --hmos-color-success: #64BB5C;
+  --hmos-color-warning: #FF9800;
+  --hmos-color-error: #E84026;
+
+  --hmos-color-bg-base: #F1F3F5;
+  --hmos-color-bg-card: #FFFFFF;
+  --hmos-color-bg-panel: rgba(255, 255, 255, 0.72);
+  --hmos-color-bg-hover: rgba(10, 89, 247, 0.06);
+  --hmos-color-bg-active: rgba(10, 89, 247, 0.10);
+
+  --hmos-color-text-primary: #182431;
+  --hmos-color-text-secondary: #666666;
+  --hmos-color-text-hint: #98A3B4;
+  --hmos-color-text-white: #FFFFFF;
+
+  --hmos-color-border: rgba(0, 0, 0, 0.05);
+  --hmos-color-border-focus: rgba(10, 89, 247, 0.40);
+  --hmos-color-divider: rgba(0, 0, 0, 0.05);
+
+  /* === 圆角体系 (HarmonyOS Radius) === */
+  --hmos-radius-xs: 4px;
+  --hmos-radius-sm: 8px;
+  --hmos-radius-md: 12px;
+  --hmos-radius-lg: 16px;
+  --hmos-radius-xl: 24px;
+  --hmos-radius-full: 9999px;
+
+  /* === 阴影体系 (HarmonyOS Shadow) === */
+  --hmos-shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.03);
+  --hmos-shadow-md: 0 8px 30px rgba(0, 0, 0, 0.04);
+  --hmos-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.05);
+  --hmos-shadow-focus: 0 0 0 2px rgba(10, 89, 247, 0.20);
+
+  /* === 间距体系 (HarmonyOS Spacing) === */
+  --hmos-spacing-xs: 4px;
+  --hmos-spacing-sm: 8px;
+  --hmos-spacing-md: 12px;
+  --hmos-spacing-lg: 16px;
+  --hmos-spacing-xl: 24px;
+  --hmos-spacing-2xl: 32px;
+
+  /* === 过渡动效 (HarmonyOS Motion) === */
+  --hmos-transition-fast: 150ms cubic-bezier(0.2, 0, 0, 1);     /* 微交互 */
+  --hmos-transition-normal: 250ms cubic-bezier(0.2, 0, 0, 1);    /* 常规过渡 */
+  --hmos-transition-slow: 400ms cubic-bezier(0.2, 0, 0, 1);      /* 大动效 */
+  --hmos-easing-standard: cubic-bezier(0.2, 0, 0, 1);            /* 标准缓动 */
+  --hmos-easing-decelerate: cubic-bezier(0, 0, 0, 1);            /* 减速进入 */
+  --hmos-easing-accelerate: cubic-bezier(0.3, 0, 1, 1);          /* 加速退出 */
+
+  /* === 排版 (HarmonyOS Typography) === */
+  --hmos-font-family: 'HarmonyOS Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --hmos-font-size-h1: 24px;
+  --hmos-font-size-h2: 20px;
+  --hmos-font-size-h3: 17px;
+  --hmos-font-size-body: 14px;
+  --hmos-font-size-caption: 12px;
+  --hmos-font-size-mini: 10px;
+  --hmos-font-weight-regular: 400;
+  --hmos-font-weight-medium: 500;
+  --hmos-font-weight-bold: 700;
+  --hmos-line-height-tight: 1.25;
+  --hmos-line-height-normal: 1.5;
+  --hmos-line-height-relaxed: 1.75;
+}

@@ -140,18 +140,19 @@ function HarmonyDrawer({
   return (
     <>
       <motion.div
-        className="harmony-drawer-backdrop"
+        className="harmony-drawer-backdrop hmos-drawer-overlay"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: 0.25, ease: [0.2, 0, 0, 1] }}
         onClick={onClose}
       />
       <motion.div
-        className="harmony-drawer"
+        className="harmony-drawer hmos-drawer"
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
-        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        transition={{ duration: 0.4, ease: [0.2, 0, 0, 1] }}
       >
         <div className="harmony-drawer-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -287,7 +288,7 @@ function HarmonyDrawer({
           </div>
 
           {/* 2. End-side NPU sandbox Anonymizer */}
-          <div className="harmony-card">
+          <div style={{ background: 'rgba(241, 243, 245, 0.5)', borderRadius: '24px', padding: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <span className="harmony-card-tag" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-green)' }}>
                 ArkCompiler NPU 沙箱
