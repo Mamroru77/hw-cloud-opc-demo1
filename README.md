@@ -29,17 +29,20 @@
 
 ## 核心能力
 
-- **论文解析与参数化：**支持大模型抽取与本地关键词规则两条路径，统一映射至 27 字段状态。
+- **论文解析与参数化：**支持大模型抽取与本地关键词规则两条路径，统一映射至 27 字段状态，支持卡片就地编辑参数并联动更新后续阶段。
 - **领域场景匹配：**按医疗器械、药物、医疗 AI、临床术式采用不同规则，返回 Top 3 候选及评分。
 - **文档生成：**输出临床方案和商业计划书；无可用模型时回退到四领域共 8 套本地模板。
-- **知识增强：**ChromaDB 向量检索、关键词降级、知识文档上传审核及审计日志。
+- **知识增强：**ChromaDB 向量检索、关键词降级、知识文档上传审核及审计日志，通过工作台抽屉统一接入 `KnowledgeManager`。
 - **模型与可用性：**提供盘古、DeepSeek、OpenAI、GLM、Gemini 适配器及失败降级；支持无 API Key 的 Demo 模式，前端在后端不可达时也可使用本地 Mock 继续演示。
-- **工程集成：**CodeArts 流水线状态/质量面板、Docker Compose、设备协同 WebSocket 模拟及正则脱敏沙箱。
+- **工作台与工程集成：**三栏模块化工作台 + 可折叠「医算子」Copilot + 移动端底部导航；集成 CodeArts 流水线状态与 ECharts 质量看板、Docker Compose、设备协同 WebSocket 模拟及正则脱敏沙箱。
 
 ## 技术架构
 
 ```text
-Web UI（React 19 · TypeScript 6 · Vite 8 · Zustand · ECharts）
+Web UI（React 19 · TypeScript 6 · Vite 8 · Zustand · ECharts 6）
+  ├── Workspace：TopHeaderBar / LeftPaperRail / CenterWorkspace / RightCopilotSheet / MobileBottomNav
+  ├── Drawers：KnowledgeManager / CICDStatusPanel / NpuSandboxPanel / Harmony 协同
+  └── Core：设计令牌（tokens.css）· utils（图表/文档/本地对话/模型配置）· stores · hooks
                        │ HTTP / WebSocket
                        ▼
 FastAPI（9 个路由模块 · 22 个 API 端点）
@@ -51,6 +54,12 @@ FastAPI（9 个路由模块 · 22 个 API 端点）
 ```
 
 **设计要点：**核心参数状态贯穿解析、匹配、生成及对话；模型、检索和文档生成均有本地兜底路径。Web 后端为单体 FastAPI 应用，便于本地启动与单人维护，不应理解为已实现多用户隔离的生产级微服务。
+
+## 近期更新
+
+- **前端模块化重构：**将原单文件 `App.tsx` 拆分为 `TopHeaderBar`、`LeftPaperRail`、`CenterWorkspace`（`ParamsTab` / `MatchingTab` / `DocsTab`）、`RightCopilotSheet`、`OverlayDrawer` 与 `MobileBottomNav`，并将图表配置、文档生成、本地对话引擎与模型元信息抽离至 `src/utils/`。
+- **设计令牌与响应式改进：**新增 `src/styles/tokens.css` 与 `src/styles/workspace.css`（Arc × Craft 视觉令牌、WCAG AA+ 对比度与本地系统字体栈），优化首屏操作可见性并补齐移动端导航。
+- **功能接线与缺陷修复：**统一通过 `OverlayDrawer` 挂载知识库管理、CI/CD 质量报告、NPU 沙箱与鸿蒙协同面板；修复 `CICDStatusPanel` 在 ESM 环境下调用 `require('echarts')` 导致质量图表空白的问题，并修复流水线自动跳转抢占用户当前 Tab 的交互问题。
 
 ## 快速开始
 
@@ -106,7 +115,13 @@ npm run build
 ```text
 .
 ├── harmony-web/
-│   ├── src/            # React 前端、组件、Hooks、状态
+│   ├── src/
+│   │   ├── components/ # 工作台布局、标签页、抽屉与图表组件
+│   │   ├── styles/     # 设计令牌（tokens.css）与工作区样式
+│   │   ├── utils/      # 图表配置、文档模板、本地对话引擎、模型配置
+│   │   ├── stores/     # Zustand 状态管理（模型/知识库/鸿蒙）
+│   │   ├── hooks/      # 向量检索、模型路由、WebSocket Hooks
+│   │   └── lib/        # API 封装、类型定义、常量、脱敏与模拟工具
 │   ├── backend/        # FastAPI 路由、服务、模型适配器、测试
 │   ├── docker/         # Compose、Dockerfile、流水线配置
 │   └── docs/           # 研发文档
