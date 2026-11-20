@@ -1,5 +1,5 @@
-import { AppParams, RobotMatch, ChatMessage } from './types';
-import { BACKEND_URL, FRONTEND_KNOWLEDGE_BASE, DEFAULT_ROBOTS, DRUGS_ROBOTS, AI_ROBOTS, SURGICAL_ROBOTS } from './constants';
+import type { AppParams, RobotMatch, ChatMessage } from './types';
+import { BACKEND_URL, DEFAULT_ROBOTS, DRUGS_ROBOTS, AI_ROBOTS, SURGICAL_ROBOTS } from './constants';
 
 export async function fetchBackendState(): Promise<AppParams | null> {
   try {

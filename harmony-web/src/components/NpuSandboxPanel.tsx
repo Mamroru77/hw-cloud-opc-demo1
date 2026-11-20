@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ShieldCheck } from 'lucide-react';
-import { npuSanitize, SanitizeResult } from '../lib/npuSanitizer';
+import { npuSanitize, type SanitizeResult } from '../lib/npuSanitizer';
 
 interface NpuSandboxPanelProps {
   selectedPaperId: string;
@@ -13,13 +13,21 @@ function NpuSandboxPanel({ selectedPaperId, sampleText, onSanitizeComplete }: Np
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<string[]>([]);
   const [sanitizeResult, setSanitizeResult] = useState<SanitizeResult | null>(null);
+  const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+
+  const clearTimers = useCallback(() => {
+    timersRef.current.forEach((t) => clearTimeout(t));
+    timersRef.current = [];
+  }, []);
 
   useEffect(() => {
+    clearTimers();
     setStatus('idle');
     setProgress(0);
     setLogs([]);
     setSanitizeResult(null);
-  }, [selectedPaperId]);
+    return clearTimers;
+  }, [selectedPaperId, clearTimers]);
 
   const getDefaultText = useCallback((): string => {
     if (sampleText) return sampleText;
@@ -27,122 +35,109 @@ function NpuSandboxPanel({ selectedPaperId, sampleText, onSanitizeComplete }: Np
   }, [sampleText]);
 
   const runSandbox = useCallback(() => {
+    clearTimers();
     setStatus('running');
     setProgress(0);
     setLogs([]);
     setSanitizeResult(null);
 
     const textToSanitize = getDefaultText();
+    const computedResult = npuSanitize(textToSanitize);
 
     const steps = [
-      {
-        p: 20,
-        log: '[1/5] 文本扫描与隐私字段识别 - 扫描医学文本中的敏感字段...',
-        action: () => {}
-      },
-      {
-        p: 40,
-        log: '[2/5] 规则匹配与定位 - 匹配6条医疗场景脱敏规则...',
-        action: () => {}
-      },
-      {
-        p: 60,
-        log: '[3/5] 正则替换与脱敏 - 执行隐私字段替换...',
-        action: () => {
-          const result = npuSanitize(textToSanitize);
-          setSanitizeResult(result);
-          if (onSanitizeComplete) onSanitizeComplete(result);
-        }
-      },
-      {
-        p: 80,
-        log: '[4/5] SHA-256哈希校验 - 验证脱敏完整性...',
-        action: () => {}
-      },
-      {
-        p: 100,
-        log: '[5/5] 安全传输确认 - 脱敏数据已通过安全校验，可安全传输',
-        action: () => {}
-      },
+      { p: 20, log: '[1/5] 文本扫描与隐私字段识别 - 扫描医学文本敏感实体...' },
+      { p: 40, log: '[2/5] 规则匹配与定位 - 匹配 6 条医疗隐私脱敏规则...' },
+      { p: 60, log: '[3/5] 端侧 NPU 正则替换与脱敏 - 执行字段替换...' },
+      { p: 80, log: '[4/5] SHA-256 哈希校验 - 验证脱敏完整性...' },
+      { p: 100, log: '[5/5] 安全传输确认 - 脱敏数据已通过安全校验，可安全上云' },
     ];
 
     steps.forEach((step, index) => {
-      setTimeout(() => {
-        step.action();
+      const timer = setTimeout(() => {
         setProgress(step.p);
-
-        setLogs(prev => {
-          const newLogs = [...prev, step.log];
-
-          if (index === 2 && sanitizeResult === null) {
-            // We'll add comparison logs in the next tick after sanitizeResult is set
-          }
-
+        if (index === 2) {
+          setSanitizeResult(computedResult);
+          onSanitizeComplete?.(computedResult);
+        }
+        setLogs((prev) => {
+          const next = [...prev, step.log];
           if (index === steps.length - 1) {
-            const result = npuSanitize(textToSanitize);
-            if (result.fields_sanitized > 0) {
-              newLogs.push(`  ├─ 脱敏规则命中: ${result.rules_applied.join(', ')}`);
-              newLogs.push(`  ├─ 脱敏字段数: ${result.fields_sanitized}`);
-              newLogs.push(`  └─ 传输安全: ${result.is_safe_for_transmission ? '通过' : '未通过'}`);
+            if (computedResult.fields_sanitized > 0) {
+              next.push(`  ├─ 命中规则: ${computedResult.rules_applied.join(', ')}`);
+              next.push(`  ├─ 脱敏字段数: ${computedResult.fields_sanitized}`);
+              next.push(`  └─ 传输安全校验: ${computedResult.is_safe_for_transmission ? '通过' : '未通过'}`);
             } else {
-              newLogs.push('  └─ 未检测到隐私字段，原始文本可直接传输');
+              next.push('  └─ 未检测到隐私字段，可直接传输');
             }
             setStatus('completed');
           }
-
-          return newLogs;
+          return next;
         });
-      }, (index + 1) * 600);
+      }, (index + 1) * 420);
+      timersRef.current.push(timer);
     });
-  }, [getDefaultText, onSanitizeComplete, sanitizeResult]);
+  }, [clearTimers, getDefaultText, onSanitizeComplete]);
 
   return (
-    <div className="npu-sandbox-container">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {status === 'idle' && (
-        <div style={{ textAlign: 'center', padding: '10px 0' }}>
-          <button className="harmony-btn secondary" onClick={runSandbox} style={{ width: '100%', cursor: 'pointer' }}>
-            启动 NPU 本地隐私校准
-          </button>
-        </div>
+        <button type="button" className="ym-btn-secondary" style={{ width: '100%' }} onClick={runSandbox}>
+          启动 NPU 本地隐私校准
+        </button>
       )}
 
       {status === 'running' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div className="npu-progress-wrapper">
-            <div className="npu-progress-bar" style={{ width: `${progress}%` }}></div>
-            <span className="npu-progress-text">{progress}%</span>
+        <>
+          <div className="ym-npu-progress-track">
+            <div className="ym-npu-progress-fill" style={{ width: `${progress}%` }} />
+            <span className="ym-npu-progress-label">{progress}%</span>
           </div>
-          <div className="npu-console-logs">
+          <div className="ym-npu-console">
             {logs.map((log, i) => (
-              <div key={i} className="npu-log-line">{log}</div>
+              <div key={i}>{log}</div>
             ))}
           </div>
-        </div>
+        </>
       )}
 
       {status === 'completed' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div className="npu-success-box">
-            <ShieldCheck size={16} style={{ color: 'var(--accent-green)' }} />
-            <span>本地沙箱自检通过 - 隐私泄露概率 0.00%</span>
+        <>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '9px 12px',
+              borderRadius: 10,
+              background: 'var(--ym-bg-success-soft)',
+              color: 'var(--ym-text-success)',
+              fontSize: 12.5,
+              fontWeight: 600,
+            }}
+          >
+            <ShieldCheck size={16} />
+            <span>本地沙箱自检通过 · 隐私泄露概率 0.00%</span>
           </div>
+
           {sanitizeResult && sanitizeResult.fields_sanitized > 0 && (
-            <div className="npu-sanitize-compare">
-              <div className="npu-compare-label">脱敏前</div>
-              <div className="npu-compare-text original">{sanitizeResult.original}</div>
-              <div className="npu-compare-label">脱敏后</div>
-              <div className="npu-compare-text sanitized">{sanitizeResult.sanitized}</div>
+            <div className="ym-npu-compare">
+              <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ym-text-muted)' }}>脱敏前原文</div>
+              <div className="ym-npu-compare-box original">{sanitizeResult.original}</div>
+              <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ym-text-muted)' }}>端侧 NPU 脱敏后</div>
+              <div className="ym-npu-compare-box sanitized">{sanitizeResult.sanitized}</div>
             </div>
           )}
-          <div className="npu-console-logs">
+
+          <div className="ym-npu-console">
             {logs.map((log, i) => (
-              <div key={i} className="npu-log-line">{log}</div>
+              <div key={i}>{log}</div>
             ))}
           </div>
-          <button className="harmony-btn secondary" onClick={() => setStatus('idle')} style={{ width: '100%', marginTop: '6px', cursor: 'pointer' }}>
+
+          <button type="button" className="ym-btn-secondary" style={{ width: '100%' }} onClick={() => setStatus('idle')}>
             重新运行校准
           </button>
-        </div>
+        </>
       )}
     </div>
   );

@@ -61,9 +61,18 @@ export interface CustomPaper {
   params: AppParams;
 }
 
+export interface DiffItem {
+  label: string;
+  before: string;
+  after: string;
+}
+
 export interface ChatMessage {
   sender: 'user' | 'assistant';
   text: string;
+  timestamp?: string;
+  diffs?: DiffItem[];
+  provider?: string;
 }
 
 export interface TokenMetrics {
@@ -74,9 +83,13 @@ export interface TokenMetrics {
   provider_id?: string;
 }
 
+export type WorkspaceTab = 'params' | 'matching' | 'docs';
+
+export type DrawerType = null | 'cicd' | 'knowledge' | 'harmony' | 'copilot';
+
 export interface RunCacheEntry {
   pipelineStep: number;
-  currentTab: string;
+  currentTab: WorkspaceTab;
   state: AppParams;
   matchedRobots: RobotMatch[];
   clinicalDoc: string;

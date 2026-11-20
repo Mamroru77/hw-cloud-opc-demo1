@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useKnowledgeStore, KnowledgeEntry } from '../stores/knowledgeStore';
+import { useKnowledgeStore, type KnowledgeEntry } from '../stores/knowledgeStore';
 
 export interface SearchResult {
   id: string;

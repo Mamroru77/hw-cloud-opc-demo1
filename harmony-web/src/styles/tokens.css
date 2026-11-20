@@ -1,0 +1,191 @@
+/* ==========================================================================
+   云脉·智慧医疗 — A4 · Arc × Craft Design Tokens
+   Synced 1:1 with Figma Foundations (Page: 01 · Foundations)
+   ========================================================================== */
+
+:root {
+  /* Surfaces */
+  --ym-bg-shell: #ECEFF4;
+  --ym-bg-shell-gradient: linear-gradient(155deg, #EEF1F6 0%, #E9EDF4 100%);
+  --ym-bg-sheet: #FFFFFF;
+  --ym-bg-tint: #F6F8FB;
+  --ym-bg-segment: #F1F4F8;
+  --ym-bg-cta-primary: #182234;
+  --ym-bg-cta-primary-hover: #243147;
+  --ym-bg-accent-soft: rgba(37, 99, 235, 0.08);
+  --ym-bg-success-soft: rgba(5, 150, 105, 0.09);
+  --ym-bg-warning-soft: rgba(217, 119, 6, 0.1);
+  --ym-bg-danger-soft: rgba(225, 29, 72, 0.08);
+
+  /* Text (WCAG AA+ on #FFFFFF and #F6F8FB) */
+  --ym-text-primary: #0F172A;
+  --ym-text-secondary: #475569;
+  --ym-text-muted: #64748B;
+  --ym-text-on-primary: #FFFFFF;
+  --ym-text-accent: #2563EB;
+  --ym-text-success: #059669;
+  --ym-text-warning: #B45309;
+  --ym-text-danger: #E11D48;
+
+  /* Borders */
+  --ym-border-subtle: rgba(15, 23, 42, 0.075);
+  --ym-border-default: #E2E8F0;
+  --ym-border-strong: #CBD5E1;
+  --ym-border-accent: rgba(37, 99, 235, 0.4);
+
+  /* Spacing */
+  --ym-space-xs: 4px;
+  --ym-space-sm: 8px;
+  --ym-space-md: 12px;
+  --ym-space-lg: 16px;
+  --ym-space-xl: 24px;
+
+  /* Radii */
+  --ym-radius-sm: 6px;
+  --ym-radius-md: 8px;
+  --ym-radius-lg: 10px;
+  --ym-radius-xl: 14px;
+  --ym-radius-full: 9999px;
+
+  /* Elevation */
+  --ym-shadow-sheet: 0 2px 8px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(15, 23, 42, 0.055);
+  --ym-shadow-pill: 0 1px 2px rgba(15, 23, 42, 0.05), 0 0 0 1px rgba(15, 23, 42, 0.06);
+  --ym-shadow-popover: 0 12px 32px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.07);
+  --ym-shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.22);
+
+  /* Typography — local high-craft system stack (zero blocked external fonts) */
+  --ym-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Noto Sans SC", sans-serif;
+  --ym-font-mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+  /* Legacy aliases for any child component compatibility */
+  --text-primary: var(--ym-text-primary);
+  --text-secondary: var(--ym-text-secondary);
+  --text-muted: var(--ym-text-muted);
+  --accent-cyan: var(--ym-text-accent);
+  --accent-green: var(--ym-text-success);
+  --accent-red: var(--ym-text-danger);
+  --border-color: var(--ym-border-default);
+}
+
+/* Global Reset & Accessibility */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--ym-font-sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ym-text-primary);
+  background: var(--ym-bg-shell-gradient);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Accessible keyboard focus rings (fixes P0-3) */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--ym-text-accent);
+  outline-offset: 2px;
+  box-shadow: var(--ym-shadow-focus);
+}
+
+/* Subtle architectural scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.14);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.24);
+}
+
+/* Keyframes */
+@keyframes ym-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ym-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+.ym-spin {
+  animation: ym-spin 1s linear infinite;
+}
+
+.ym-pulse {
+  animation: ym-pulse 1.5s ease-in-out infinite;
+}
+
+/* Reduced motion support (fixes P0-3) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* HarmonyOS adaptive spacing polish */
+html.harmony-os {
+  --ym-radius-xl: 18px;
+  --ym-radius-lg: 12px;
+}

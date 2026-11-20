@@ -1,4 +1,4 @@
-import { RAGReference, PresetPaper, RobotMatch, AppParams } from './types';
+import type { RAGReference, PresetPaper, RobotMatch, AppParams, ChatMessage } from './types';
 
 export const BACKEND_URL = "http://127.0.0.1:8000/api";
 
@@ -285,7 +285,7 @@ export const VALID_KEYWORDS = [
   "device", "diagnosis", "accuracy", "sensitivity", "specificity", "auc", "segmentation", "reconstruction"
 ];
 
-export const DEFAULT_SYSTEM_PROMPT = "作为"云脉"系统的协同助手"医算子"，你需要结合学术论文中的理化与药代指标，推导并验证临床可行性及商业可行性。微调指令应联动触发技术理解、场景匹配与执行输出三个智能体，实现全链路参数与生成文档的一致性更新。用户提问时，请基于当前提取的分子物理化学参数、适配的手术机器人及生成的临床方案和商业计划书，给予专业、详实的解答。";
+export const DEFAULT_SYSTEM_PROMPT = '作为“云脉”系统的协同助手“医算子”，你需要结合学术论文中的理化与药代指标，推导并验证临床可行性及商业可行性。微调指令应联动触发技术理解、场景匹配与执行输出三个智能体，实现全链路参数与生成文档的一致性更新。用户提问时，请基于当前提取的分子物理化学参数、适配的手术机器人及生成的临床方案和商业计划书，给予专业、详实的解答。';
 
 export const WELCOME_MESSAGE: ChatMessage = {
   sender: 'assistant',
