@@ -1,138 +1,233 @@
-# 云脉·智慧医疗｜转化医学 AI 工作站
+<div align="center">
 
-> 以 **27 项结构化参数**为核心，将医学论文解析、成果落地匹配与临床/商业方案生成串联为可交互的工作流。
+<h1>云脉 · 智慧医疗（Yunmai Medical）</h1>
 
-面向临床研究者、医疗创新团队与成果转化场景的轻量级原型项目，采用 **Web 工作站 + HarmonyOS 移动端**的仓库结构。本 README 重点介绍已有技术文档覆盖的 **Web 端**实现；移动端详见 [HarmonyOS README](harmony-os/README.md)。
+<p>
+  <strong>面向转化医学全链路的轻量级多智能体工作站</strong><br/>
+  <sub>Translational Medicine AI Workstation · Structured 27-Field Pipeline · Web &amp; HarmonyOS</sub>
+</p>
 
-**项目背景：**“华为云杯”2026 人工智能 OPC 应用创新大赛 · 智慧医疗方向。
+<p>
+  <img src="https://img.shields.io/badge/Python-3.12%20%7C%20FastAPI-1e293b?style=flat-square" alt="Python FastAPI" />
+  <img src="https://img.shields.io/badge/Web-React%2019%20%7C%20Vite%208-334155?style=flat-square" alt="React Vite" />
+  <img src="https://img.shields.io/badge/Mobile-HarmonyOS%20NEXT%20API%2012-475569?style=flat-square" alt="HarmonyOS NEXT" />
+  <img src="https://img.shields.io/badge/RAG-ChromaDB%20%2B%20Fallback-64748b?style=flat-square" alt="ChromaDB RAG" />
+</p>
 
-## 核心工作流
+<p>
+  <a href="#abstract">摘要</a> &nbsp;·&nbsp;
+  <a href="#architecture">方法与架构</a> &nbsp;·&nbsp;
+  <a href="#interface">界面概览</a> &nbsp;·&nbsp;
+  <a href="#quickstart">复现与运行</a> &nbsp;·&nbsp;
+  <a href="#updates">近期更新</a> &nbsp;·&nbsp;
+  <a href="#limitations">边界声明</a>
+</p>
 
-```text
-论文 PDF / 文本
-    ↓
-① 识别领域并提取技术参数（27 字段 SessionState）
-    ↓
-② 匹配 Top 3 转化落地场景（含兼容度评分）
-    ↓
-③ 生成临床研究方案 + 商业计划书（Markdown）
+</div>
+
+---
+
+<a id="abstract"></a>
+
+## 1. 摘要（Abstract）
+
+医学科研成果向临床与产业转化普遍面临「文献参数提取—场景合规匹配—临床与商业方案撰写」链路割裂的问题。**云脉·智慧医疗**提出一种以 **27 项强类型结构化参数（`SessionState`）** 为状态中枢的轻量级多智能体工作站，覆盖**医疗器械、创新药物、医疗 AI、临床术式**四类转化医学场景。
+
+系统采用 **Web 工作站 + HarmonyOS 移动端** 双端结构，内置五模型降级链（盘古 / DeepSeek / OpenAI / GLM / Gemini）、ChromaDB 向量与关键词双模 RAG 检索，以及无 API Key 场景下的本地规则与模板兜底引擎，支持单研究者在低成本环境下完成端到端转化推演。
+
+> **项目背景**："华为云杯" 2026 人工智能 OPC 应用创新大赛 · 智慧医疗方向。移动端详细实现见 [HarmonyOS README](harmony-os/README.md)。
+
+<p align="center">
+  <img src="docs/assets/fig1-workspace-overview.png" alt="Figure 1: Yunmai Web Workstation Overview" width="100%" />
+</p>
+
+<p align="center">
+  <sub><strong>Figure 1.</strong> 云脉 Web 工作站三栏式主界面（Arc × Craft 视觉体系）：左侧论文队列与主流程触发、中央药代动力学（PK）曲线与结构化参数卡片（支持就地编辑与 NMPA/FDA 法规核验）、右侧可折叠「医算子」上下文感知 Copilot。</sub>
+</p>
+
+---
+
+<a id="architecture"></a>
+
+## 2. 核心方法与系统架构（Method & Architecture）
+
+系统不采用通用对话套壳，而是将医学文献解析、成果落地匹配、文档生成与「医算子」多轮调参统一收敛到 **27 字段强类型 `SessionState`** 上：任何参数卡片就地微调或自然语言指令都会写回核心状态，并联动刷新下游匹配排序与文档输出。
+
+```mermaid
+flowchart LR
+    P["医学论文<br/>PDF / Text"] --> S1["Stage 1 · 技术理解<br/>LLM 抽取 / 规则兜底"]
+    S1 --> ST[("SessionState<br/>27 项结构化参数")]
+    ST --> S2["Stage 2 · 场景匹配<br/>Top-3 兼容度评估"]
+    ST --> S3["Stage 3 · 执行输出<br/>临床方案 + 商业计划"]
+    RAG["RAG 法规知识库<br/>ChromaDB → 关键词"] -.-> S1
+    RAG -.-> S2
+    RAG -.-> S3
+    AI["医算子 Copilot<br/>自然语言微调"] <--> ST
 ```
 
-贯穿流程的 **「医算子」AI 顾问**支持自然语言调整科室、融资额及领域参数，并将变更写回统一状态，供后续匹配和文档生成使用。
+<p align="center">
+  <sub><strong>Figure 2.</strong> 以 <code>SessionState</code> 为状态中枢的三阶段多智能体流水线及 RAG 法规校准机制。</sub>
+</p>
 
-| 领域 | 标识 | 典型参数或场景 |
-| --- | --- | --- |
-| 医疗器械 | `devices` | 激发/发射波长、半衰期、手术导航设备 |
-| 创新药物 | `drugs` | 靶点、适应症、剂量限制性毒性、CDMO/GCP |
-| 医疗 AI | `ai` | 影像模态、AUC、推理延迟、PACS 接入 |
-| 临床术式 | `surgical` | 解剖部位、核心器械、学习曲线、实训基地 |
+### 2.1 四大转化领域建模
 
-## 核心能力
+| 转化领域 | 标识 | 核心结构化参数示例 | 典型落地匹配标的 |
+|:---|:---|:---|:---|
+| **医疗器械** | `devices` | 激发/发射波长、半衰期、成像穿透深度、LD50 / MTD | 荧光手术导航机器人（达芬奇 / 图迈 / 术锐） |
+| **创新药物** | `drugs` | 靶点、适应症、剂量限制性毒性（DLT）、PK 指标 | CDMO 工艺外包平台、GCP 临床试验基地 |
+| **医疗 AI** | `ai` | 影像模态、AUC / 灵敏度、单帧推理延迟 | 医院 PACS 系统集成、SaMD 注册合规路径 |
+| **临床术式** | `surgical` | 解剖部位、核心器械、术者学习曲线、并发症终点 | 区域三甲实训中心、多中心临床研究协作 |
 
-- **论文解析与参数化：**支持大模型抽取与本地关键词规则两条路径，统一映射至 27 字段状态，支持卡片就地编辑参数并联动更新后续阶段。
-- **领域场景匹配：**按医疗器械、药物、医疗 AI、临床术式采用不同规则，返回 Top 3 候选及评分。
-- **文档生成：**输出临床方案和商业计划书；无可用模型时回退到四领域共 8 套本地模板。
-- **知识增强：**ChromaDB 向量检索、关键词降级、知识文档上传审核及审计日志，通过工作台抽屉统一接入 `KnowledgeManager`。
-- **模型与可用性：**提供盘古、DeepSeek、OpenAI、GLM、Gemini 适配器及失败降级；支持无 API Key 的 Demo 模式，前端在后端不可达时也可使用本地 Mock 继续演示。
-- **工作台与工程集成：**三栏模块化工作台 + 可折叠「医算子」Copilot + 移动端底部导航；集成 CodeArts 流水线状态与 ECharts 质量看板、Docker Compose、设备协同 WebSocket 模拟及正则脱敏沙箱。
+<p align="center">
+  <sub><strong>Table 1.</strong> 四类转化医学细分领域的参数建模范围与下游匹配标的。</sub>
+</p>
 
-## 技术架构
+### 2.2 分层工程架构
 
-```text
-Web UI（React 19 · TypeScript 6 · Vite 8 · Zustand · ECharts 6）
-  ├── Workspace：TopHeaderBar / LeftPaperRail / CenterWorkspace / RightCopilotSheet / MobileBottomNav
-  ├── Drawers：KnowledgeManager / CICDStatusPanel / NpuSandboxPanel / Harmony 协同
-  └── Core：设计令牌（tokens.css）· utils（图表/文档/本地对话/模型配置）· stores · hooks
-                       │ HTTP / WebSocket
-                       ▼
-FastAPI（9 个路由模块 · 22 个 API 端点）
-  ├── SessionState：27 字段，驱动业务流程
-  ├── LLM Adapters：5 模型路由与降级
-  ├── RAG：ChromaDB → 关键词检索
-  ├── Services：论文解析 / 场景匹配 / 文档生成 / 医算子
-  └── Integrations：CodeArts / Harmony 模拟 / 脱敏
+```mermaid
+flowchart TB
+    subgraph Client["客户端层 · Web & HarmonyOS"]
+        W["Web 工作站<br/>React 19 · TypeScript 6 · Vite 8 · Zustand · ECharts 6"]
+        H["HarmonyOS 移动端<br/>ArkTS · ArkUI · API 12 手机/平板自适应"]
+    end
+
+    subgraph API["服务层 · FastAPI（9 路由模块 · 22 API 端点）"]
+        R["LLM 路由与降级链<br/>盘古 → DeepSeek → OpenAI → GLM → Gemini"]
+        SV["领域服务层<br/>论文解析 · 场景匹配 · 文档生成 · 医算子"]
+        IG["工程集成模块<br/>CodeArts 看板 · 星闪模拟 WS · 正则脱敏沙箱"]
+    end
+
+    subgraph Data["数据与部署层"]
+        DB["ChromaDB 向量存储<br/>+ 关键词降级检索"]
+        DK["Docker Compose · Nginx · CodeArts Pipeline"]
+    end
+
+    W & H -->|HTTP / WebSocket| API
+    SV --> R
+    SV --> DB
+    API --> DK
 ```
 
-**设计要点：**核心参数状态贯穿解析、匹配、生成及对话；模型、检索和文档生成均有本地兜底路径。Web 后端为单体 FastAPI 应用，便于本地启动与单人维护，不应理解为已实现多用户隔离的生产级微服务。
+<p align="center">
+  <sub><strong>Figure 3.</strong> 端云协同分层架构。Web 后端采用单体 FastAPI 实现以便本地启动与单人维护，所有外部依赖均提供本地降级路径。</sub>
+</p>
 
-## 近期更新
+---
 
-- **前端模块化重构：**将原单文件 `App.tsx` 拆分为 `TopHeaderBar`、`LeftPaperRail`、`CenterWorkspace`（`ParamsTab` / `MatchingTab` / `DocsTab`）、`RightCopilotSheet`、`OverlayDrawer` 与 `MobileBottomNav`，并将图表配置、文档生成、本地对话引擎与模型元信息抽离至 `src/utils/`。
-- **设计令牌与响应式改进：**新增 `src/styles/tokens.css` 与 `src/styles/workspace.css`（Arc × Craft 视觉令牌、WCAG AA+ 对比度与本地系统字体栈），优化首屏操作可见性并补齐移动端导航。
-- **功能接线与缺陷修复：**统一通过 `OverlayDrawer` 挂载知识库管理、CI/CD 质量报告、NPU 沙箱与鸿蒙协同面板；修复 `CICDStatusPanel` 在 ESM 环境下调用 `require('echarts')` 导致质量图表空白的问题，并修复流水线自动跳转抢占用户当前 Tab 的交互问题。
+<a id="interface"></a>
 
-## 快速开始
+## 3. 界面与交互概览（Interface Walkthrough）
 
-### 本地开发
+<table>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="docs/assets/fig3a-scenario-matching.png" alt="Fig. 4a Scenario Matching" width="100%" /><br/>
+      <sub><strong>Fig. 4a · 成果落地匹配</strong><br/>输出 Top-3 适配手术机器人/基地、五维兼容度雷达图及对应法规准入依据。</sub>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <img src="docs/assets/fig3b-document-generation.png" alt="Fig. 4b Document Generation" width="100%" /><br/>
+      <sub><strong>Fig. 4b · 临床与商业文档生成</strong><br/>双栏并排输出 Phase I 临床方案草案与商业融资计划书，支持一键复制与 <code>.md</code> 导出。</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="docs/assets/fig3c-knowledge-drawer.png" alt="Fig. 4c RAG Knowledge Drawer" width="100%" /><br/>
+      <sub><strong>Fig. 4c · RAG 医疗知识库抽屉</strong><br/>支持 NMPA / FDA / ICH 指南拖拽入库、四领域覆盖统计与 Top-5 语义检索测试。</sub>
+    </td>
+    <td width="50%" align="center" valign="top">
+      <img src="docs/assets/fig3d-harmonyos-dual.png" alt="Fig. 4d HarmonyOS Dual Form Factor" width="100%" /><br/>
+      <sub><strong>Fig. 4d · HarmonyOS 双形态原生适配</strong><br/>ArkUI 原生响应布局：平板端（≥720vp）双栏工作台与手机端单列紧凑视图。</sub>
+    </td>
+  </tr>
+</table>
 
-环境：Python 3.12、Node.js（满足 Vite 8 的版本要求）和 npm。
+---
+
+<a id="quickstart"></a>
+
+## 4. 快速复现与运行（Quick Start & Reproducibility）
+
+环境要求：`Python 3.12`、`Node.js 20+`（满足 Vite 8 要求）与 `npm`。无 API Key 时自动进入本地规则引擎与模板兜底模式；界面右上角配置模型 Key 后即可切换在线大模型联调。
 
 ```bash
 git clone https://github.com/Mamroru77/hw-cloud-opc-demo1.git
 cd hw-cloud-opc-demo1/harmony-web
 
-# 终端 1：启动后端
+# 终端 1：启动后端（API 文档 → http://127.0.0.1:8000/docs）
 python -m venv .venv
-source .venv/bin/activate   # macOS/Linux；Windows 改用 .venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r backend/requirements.txt
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
-```
 
-```bash
-# 终端 2：在 harmony-web/ 下启动前端
+# 终端 2：启动前端（Web 工作站 → http://localhost:5173）
 npm install --include=dev
 npm run dev
 ```
 
-- Web 页面：<http://localhost:5173>
-- API 文档：<http://127.0.0.1:8000/docs>
-- 无 API Key 可体验 Demo；在界面中配置支持的模型 Key 后可进行实际模型联调。
-- Windows 也可使用 `harmony-web/start-backend.bat` 和 `start-frontend.bat`。
+> Windows 亦可直接运行 `harmony-web/start-backend.bat` 与 `start-frontend.bat`。
 
-### Docker Compose
+<details>
+<summary><strong>展开查看：Docker 部署、测试校验与仓库目录结构</strong></summary>
+
+#### Docker Compose
 
 ```bash
 cd harmony-web/docker
 docker compose up --build
 ```
 
-默认映射：前端 `http://localhost:3000`，后端 `http://localhost:8000`。**当前前端 API 地址仍使用本机 `127.0.0.1:8000`；远程访问或正式容器部署前需调整 API 地址/反向代理配置。**
+默认映射前端 `http://localhost:3000`、后端 `http://localhost:8000`。当前前端 API 地址指向本机 `127.0.0.1:8000`，远程或生产容器部署前需调整 API 地址与反向代理配置。
 
-### 测试与构建
+#### 测试与静态检查
 
-在 `harmony-web/` 目录执行：
+在 `harmony-web/` 目录下执行：
 
 ```bash
-python -m pytest backend/tests/ -v
-npm run lint
-npm run build
+python -m pytest backend/tests/ -v   # 27 项后端接口与服务单元测试
+npm run lint                         # oxlint 静态检查
+npm run build                        # TypeScript / Vite 生产构建
 ```
 
-后端包含 27 个 pytest 用例，覆盖解析、场景匹配、状态、知识库、模型路由及集成接口。
-
-## 项目目录
+#### 仓库目录
 
 ```text
-.
+hw-cloud-opc-demo1/
+├── docs/assets/                # README 界面与多端展示图
 ├── harmony-web/
 │   ├── src/
-│   │   ├── components/ # 工作台布局、标签页、抽屉与图表组件
-│   │   ├── styles/     # 设计令牌（tokens.css）与工作区样式
-│   │   ├── utils/      # 图表配置、文档模板、本地对话引擎、模型配置
-│   │   ├── stores/     # Zustand 状态管理（模型/知识库/鸿蒙）
-│   │   ├── hooks/      # 向量检索、模型路由、WebSocket Hooks
-│   │   └── lib/        # API 封装、类型定义、常量、脱敏与模拟工具
-│   ├── backend/        # FastAPI 路由、服务、模型适配器、测试
-│   ├── docker/         # Compose、Dockerfile、流水线配置
-│   └── docs/           # 研发文档
-└── harmony-os/         # HarmonyOS 移动端工程
+│   │   ├── components/         # 工作台布局、标签页、抽屉与 ECharts 封装
+│   │   ├── styles/             # Arc × Craft 设计令牌（tokens.css）与工作区样式
+│   │   ├── utils/              # 图表配置、文档模板、本地对话引擎、模型配置
+│   │   ├── stores/             # Zustand 状态管理（model / knowledge / harmony）
+│   │   ├── hooks/              # 向量检索、模型路由、WebSocket Hooks
+│   │   └── lib/                # API 封装、类型定义、常量、脱敏与模拟工具
+│   ├── backend/                # FastAPI 路由、服务、5 模型适配器、27 项测试
+│   ├── docker/                 # Docker Compose、Dockerfile 与流水线配置
+│   └── docs/                   # 研发文档与 CodeArts 研发日志
+└── harmony-os/                 # HarmonyOS NEXT（API 12）原生移动端工程
 ```
 
-详细实现与配置参见 [Web 端说明](harmony-web/README.md)、[HarmonyOS 端说明](harmony-os/README.md) 和 [CodeArts 研发日志](harmony-web/docs/CodeArts_Agent_DevLog.md)。
+延伸文档：[Web 端说明](harmony-web/README.md) · [HarmonyOS 端说明](harmony-os/README.md) · [CodeArts 研发日志](harmony-web/docs/CodeArts_Agent_DevLog.md)
 
-## 当前边界
+</details>
 
-- **单用户原型：**后端使用进程级全局状态；知识待审队列与部分审计记录保存在内存中，尚不支持可靠的多用户会话隔离和持久化。
-- **演示功能与真实能力有区别：**设备发现/星闪通道为模拟实现；“NPU 脱敏”目前是正则规则处理，不能视作已接入真实 NPU 或完整的医疗数据匿名化方案。
-- **生产部署仍需加固：**包括接口鉴权、HTTPS、CORS 收紧、容器通信地址及部分模型适配器配置。请勿直接用于承载真实患者敏感数据。
-- **非临床决策工具：**生成的临床方案和商业计划书仅供研究及成果转化讨论，具体剂量、样本量、法规依据和财务假设须由专业人员核验，不能直接用于伦理申报或临床决策。
+---
+
+<a id="updates"></a>
+
+## 5. 近期架构重构（Recent Refactor）
+
+- **前端组件模块化**：将原 3,000+ 行单文件 `App.tsx` 拆分为 `TopHeaderBar`、`LeftPaperRail`、`CenterWorkspace`（`ParamsTab` / `MatchingTab` / `DocsTab`）、`RightCopilotSheet`、`OverlayDrawer` 与 `MobileBottomNav`，纯计算逻辑抽离至 `src/utils/`。
+- **视觉令牌与无障碍体系**：建立 `src/styles/tokens.css`（Arc × Craft 令牌、WCAG AA+ 文本对比度、本地系统字体栈与焦点可见性），修复首屏主 CTA 被折叠与移动端无入口问题。
+- **抽屉接线与缺陷修复**：统一接入知识库管理、CI/CD 质量看板、鸿蒙协同与 NPU 脱敏抽屉；修复 `CICDStatusPanel` 在 ESM 环境下使用 `require('echarts')` 导致图表空白及流水线自动切 Tab 抢占焦点的问题。
+
+---
+
+<a id="limitations"></a>
+
+## 6. 当前边界与声明（Limitations & Scope）
+
+- **单用户原型定位**：后端采用进程级全局状态，知识待审队列与部分审计记录保存在内存中，尚未支持多租户会话隔离与持久化数据库。
+- **模拟能力边界**：设备发现与星闪通道为 WebSocket 模拟实现；「NPU 脱敏」目前基于正则规则处理，并非硬件级 NPU 推理或完整的医疗数据匿名化方案。
+- **生产部署加固要求**：当前版本未配置完整鉴权、HTTPS 与严格 CORS 策略，**请勿直接承载真实患者隐私数据**。
+- **非临床决策免责**：生成的临床研究方案与商业计划书仅用于科研探讨与成果转化推演，所有剂量、样本量、法规路径与财务假设须由专业人员复核，不得直接用于临床决策或伦理申报。
