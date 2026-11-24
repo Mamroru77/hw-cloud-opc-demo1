@@ -1,11 +1,17 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Activity, BookOpen, Bot, Cpu, Radio } from 'lucide-react';
 import { HuaweiIcon } from './icons/BrandIcons';
 import CICDStatusPanel from './CICDStatusPanel';
 import KnowledgeManager from './KnowledgeManager';
 import NpuSandboxPanel from './NpuSandboxPanel';
 import { RightCopilotSheet } from './RightCopilotSheet';
+import { WebSocketNearLinkSim, type HarmonyDevice } from '../lib/wsNearLinkSim';
+import { sanitizeTextViaBackend } from '../lib/api';
+import { npuSanitize } from '../lib/npuSanitizer';
+import { useHarmonyStore } from '../stores/harmonyStore';
 import type { AppParams, ChatMessage, DrawerType, RAGReference } from '../lib/types';
+
+const nearLinkClient = new WebSocketNearLinkSim();
 
 interface OverlayDrawerProps {
   activeDrawer: DrawerType;
@@ -13,6 +19,7 @@ interface OverlayDrawerProps {
   // Harmony props
   selectedPaperId: string;
   selectedPaperTitle: string;
+  selectedPaperContent?: string;
   state: AppParams;
   ragReferences: RAGReference[];
   harmonySynced: boolean;
@@ -37,6 +44,7 @@ export const OverlayDrawer: React.FC<OverlayDrawerProps> = ({
   onClose,
   selectedPaperId,
   selectedPaperTitle,
+  selectedPaperContent,
   state,
   ragReferences,
   harmonySynced,
@@ -54,6 +62,13 @@ export const OverlayDrawer: React.FC<OverlayDrawerProps> = ({
   onChangeSystemPrompt,
   onResetSystemPrompt,
 }) => {
+  const harmonyStore = useHarmonyStore();
+  const setHarmonyDevices = harmonyStore.setDevices;
+  const [devices, setDevices] = useState<HarmonyDevice[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('harmony-tablet-001');
+  const [syncLogs, setSyncLogs] = useState<string[]>([]);
+  const [wsRunning, setWsRunning] = useState(false);
+
   useEffect(() => {
     if (!activeDrawer) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -62,6 +77,97 @@ export const OverlayDrawer: React.FC<OverlayDrawerProps> = ({
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [activeDrawer, onClose]);
+
+  useEffect(() => {
+    if (activeDrawer !== 'harmony') return;
+    let cancelled = false;
+    nearLinkClient.discoverDevices().then((list) => {
+      if (!cancelled && list.length > 0) {
+        setDevices(list);
+        setHarmonyDevices(list);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeDrawer, setHarmonyDevices]);
+
+  const handleRealHarmonySync = async () => {
+    setWsRunning(true);
+    setSyncLogs([]);
+    const pushLog = (msg: string) => setSyncLogs((prev) => [...prev, msg]);
+
+    try {
+      pushLog('[1/4] 连接后端星闪协同 WebSocket 通道 (/api/harmony/ws)...');
+      let wsConnected = false;
+      try {
+        await nearLinkClient.connect();
+        wsConnected = true;
+        pushLog('WebSocket 通道已建连');
+      } catch (err) {
+        pushLog(`WebSocket 不可用，切换 REST/本地缓冲模式 (${err instanceof Error ? err.message : String(err)})`);
+      }
+
+      pushLog('[2/4] 发现附近协同终端...');
+      const found = await nearLinkClient.discoverDevices();
+      setDevices(found);
+      harmonyStore.setDevices(found);
+      const target = found.find((d) => d.device_id === selectedDeviceId) || found[0];
+      if (!target) {
+        pushLog('未发现可用终端');
+        setWsRunning(false);
+        return;
+      }
+      setSelectedDeviceId(target.device_id);
+      pushLog(`选中终端: ${target.device_name} (${target.device_id})`);
+
+      pushLog('[3/4] 配对并建立安全传输通道...');
+      await nearLinkClient.pairDevice(target.device_id);
+      await nearLinkClient.establishChannel(target.device_id);
+
+      pushLog('[4/4] 对论文指标载荷执行脱敏并推流...');
+      const rawPayload = JSON.stringify({
+        paper_title: selectedPaperTitle,
+        domain: state.domain,
+        target_department: state.target_department,
+        clinical_trial_site: state.clinical_trial_site,
+        financing_amount: state.financing_amount,
+        rag_count: ragReferences.length,
+      });
+      const sanitized = (await sanitizeTextViaBackend(rawPayload)) || npuSanitize(rawPayload);
+      harmonyStore.setSanitizeResult(sanitized);
+
+      const sent = await nearLinkClient.sendData(target.device_id, {
+        card_title: selectedPaperTitle,
+        domain: state.domain,
+        sanitized_payload: sanitized.sanitized,
+        fields_sanitized: sanitized.fields_sanitized,
+      });
+
+      if (sent || !wsConnected) {
+        pushLog(
+          wsConnected
+            ? `已通过 WebSocket 推流至 ${target.device_name}（已脱敏 ${sanitized.fields_sanitized} 字段）`
+            : `已缓存推流载荷至断线重连队列，待通道恢复自动补发`
+        );
+        harmonyStore.setConnectionState(wsConnected ? 'connected' : 'syncing');
+        harmonyStore.setLastSyncTime(Date.now());
+        onSyncHarmony();
+      }
+    } catch (err) {
+      pushLog(`协同推流异常: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setWsRunning(false);
+    }
+  };
+
+  const handleRealHarmonyDisconnect = async () => {
+    await nearLinkClient.closeChannel(selectedDeviceId);
+    nearLinkClient.disconnect();
+    harmonyStore.reset();
+    setSyncLogs(['已断开 WebSocket 协同通道']);
+    onDisconnectHarmony();
+  };
 
   if (!activeDrawer) return null;
 
@@ -74,12 +180,12 @@ export const OverlayDrawer: React.FC<OverlayDrawerProps> = ({
     knowledge: {
       icon: <BookOpen size={18} style={{ color: 'var(--ym-text-accent)' }} />,
       title: 'RAG 医疗知识库管理',
-      sub: 'NMPA / FDA / ICH 法规入库与语义检索测试',
+      sub: 'NMPA / FDA / ICH 法规入库、审核与语义检索',
     },
     harmony: {
       icon: <HuaweiIcon size={19} />,
       title: '鸿蒙端云双向协同',
-      sub: 'NearLink 星闪元服务卡片 & 端侧 NPU 隐私沙箱',
+      sub: 'WebSocket 协同总线 & 隐私脱敏校验沙箱',
     },
     copilot: {
       icon: <Bot size={18} style={{ color: 'var(--ym-text-accent)' }} />,
@@ -115,6 +221,9 @@ export const OverlayDrawer: React.FC<OverlayDrawerProps> = ({
         : state.domain === 'surgical'
           ? `${state.learning_curve_cases} 例`
           : `${state.half_life} h`;
+
+  const activeDeviceName =
+    devices.find((d) => d.device_id === selectedDeviceId)?.device_name || 'MatePad Pro';
 
   return (
     <>
@@ -172,7 +281,7 @@ export const OverlayDrawer: React.FC<OverlayDrawerProps> = ({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span className="ym-paper-tag" style={{ background: 'var(--ym-bg-accent-soft)', color: 'var(--ym-text-accent)' }}>
                       <Radio size={11} style={{ marginRight: 4, verticalAlign: '-1px' }} />
-                      星闪分布式总线
+                      星闪分布式总线 (WS)
                     </span>
                     <span
                       className="ym-rag-pill"
@@ -190,9 +299,30 @@ export const OverlayDrawer: React.FC<OverlayDrawerProps> = ({
                   <div>
                     <div className="ym-sp-title">ArkUI 智能分布式元服务卡片</div>
                     <p className="ym-sp-body" style={{ marginTop: 4 }}>
-                      一键将当前论文关键理化指标及 PK/ROC 曲线实时推流至附近 HarmonyOS 设备（MatePad Pro / 智慧屏 / 手术室终端）。
+                      通过后端 WebSocket 通道（`/api/harmony/ws`）完成脱敏与数据帧推流，同步当前论文指标至目标鸿蒙终端。
                     </p>
                   </div>
+
+                  {devices.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <label htmlFor="ym-harmony-device" style={{ fontSize: 12, color: 'var(--ym-text-secondary)', whiteSpace: 'nowrap' }}>
+                        目标终端
+                      </label>
+                      <select
+                        id="ym-harmony-device"
+                        className="ym-input"
+                        style={{ background: 'var(--ym-bg-sheet)' }}
+                        value={selectedDeviceId}
+                        onChange={(e) => setSelectedDeviceId(e.target.value)}
+                      >
+                        {devices.map((d) => (
+                          <option key={d.device_id} value={d.device_id}>
+                            {d.device_name} ({d.device_type})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="ym-arkui-preview">
                     <div className="ym-arkui-head">
@@ -200,7 +330,7 @@ export const OverlayDrawer: React.FC<OverlayDrawerProps> = ({
                         <HuaweiIcon size={13} />
                         云脉 · ArkUI
                       </span>
-                      <span>MatePad Pro</span>
+                      <span>{activeDeviceName}</span>
                     </div>
                     <div
                       style={{
@@ -234,14 +364,22 @@ export const OverlayDrawer: React.FC<OverlayDrawerProps> = ({
                     </div>
                   </div>
 
+                  {syncLogs.length > 0 && (
+                    <div className="ym-npu-console">
+                      {syncLogs.map((line, i) => (
+                        <div key={i}>{line}</div>
+                      ))}
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button
                       type="button"
                       className="ym-btn-primary"
-                      disabled={isSyncingHarmony}
-                      onClick={onSyncHarmony}
+                      disabled={isSyncingHarmony || wsRunning}
+                      onClick={handleRealHarmonySync}
                     >
-                      {isSyncingHarmony
+                      {isSyncingHarmony || wsRunning
                         ? '星闪总线同步中...'
                         : harmonySynced
                           ? '更新多端推流'
@@ -251,7 +389,7 @@ export const OverlayDrawer: React.FC<OverlayDrawerProps> = ({
                       <button
                         type="button"
                         className="ym-btn-secondary"
-                        onClick={onDisconnectHarmony}
+                        onClick={handleRealHarmonyDisconnect}
                       >
                         断开协同
                       </button>
@@ -261,19 +399,19 @@ export const OverlayDrawer: React.FC<OverlayDrawerProps> = ({
 
                 <section className="ym-drawer-card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="ym-rag-pill">ArkCompiler NPU 沙箱</span>
+                    <span className="ym-rag-pill">隐私脱敏沙箱</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--ym-text-muted)', fontWeight: 500 }}>
                       <Cpu size={13} />
-                      端侧隐私保护
+                      后端脱敏引擎联调
                     </span>
                   </div>
                   <div>
-                    <div className="ym-sp-title">本地端侧 3B 模型隐私脱敏</div>
+                    <div className="ym-sp-title">临床文本隐私脱敏校验</div>
                     <p className="ym-sp-body" style={{ marginTop: 4 }}>
-                      调用端侧 NPU 在本地替换患者 ID、身份证号、电话及医院铭牌，确保敏感临床数据不出沙箱。
+                      实时调用后端 `/api/harmony/sanitize` 替换患者 ID、身份证号、电话及医院铭牌，确保敏感临床数据脱敏后再上云。
                     </p>
                   </div>
-                  <NpuSandboxPanel selectedPaperId={selectedPaperId} />
+                  <NpuSandboxPanel selectedPaperId={selectedPaperId} sampleText={selectedPaperContent} />
                 </section>
               </>
             )}

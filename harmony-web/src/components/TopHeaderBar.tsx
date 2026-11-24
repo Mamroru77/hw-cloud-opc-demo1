@@ -16,6 +16,7 @@ import {
 } from './icons/BrandIcons';
 import { MODEL_PROVIDERS, getProviderMeta } from '../utils/providers';
 import { detectProvider } from '../lib/api';
+import { BACKEND_URL } from '../lib/constants';
 import { useModelStore } from '../stores/modelStore';
 import type { DrawerType } from '../lib/types';
 
@@ -25,6 +26,7 @@ interface TopHeaderBarProps {
   apiKey: string;
   onChangeApiKey: (key: string) => void;
   isApiConfigured: boolean;
+  hasServerModelKey?: boolean;
   onSaveApiKey: () => void;
   onClearApiKey: () => void;
   isOnlineMode: boolean;
@@ -44,6 +46,7 @@ export const TopHeaderBar: React.FC<TopHeaderBarProps> = ({
   apiKey,
   onChangeApiKey,
   isApiConfigured,
+  hasServerModelKey = false,
   onSaveApiKey,
   onClearApiKey,
   isOnlineMode,
@@ -54,7 +57,7 @@ export const TopHeaderBar: React.FC<TopHeaderBarProps> = ({
   isCopilotCollapsed,
   onToggleCopilot,
   harmonySynced,
-  cicdBackendUrl = 'http://127.0.0.1:8000/api/cicd',
+  cicdBackendUrl = `${BACKEND_URL}/cicd`,
 }) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -237,6 +240,8 @@ export const TopHeaderBar: React.FC<TopHeaderBarProps> = ({
                   </span>
                   {isApiConfigured ? (
                     <span style={{ color: 'var(--ym-text-success)', fontWeight: 600 }}>已配置</span>
+                  ) : hasServerModelKey ? (
+                    <span style={{ color: 'var(--ym-text-success)', fontWeight: 600 }}>服务端 .env 已托管</span>
                   ) : detected ? (
                     <span style={{ color: 'var(--ym-text-accent)', fontWeight: 500 }}>{detected}</span>
                   ) : null}

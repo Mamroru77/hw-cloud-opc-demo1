@@ -144,13 +144,4 @@ function RAGReferencePanel({ references, coverageWarning, isDegraded }: RAGRefer
   );
 }
 
-export const renderRAGBadge = () => {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, color: 'var(--accent-green)' }}>
-      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--accent-green)', boxShadow: '0 0 8px var(--accent-green)' }}></span>
-      <span>已连接知识库 (RAG-Enabled)</span>
-    </div>
-  );
-};
-
 export default RAGReferencePanel;

@@ -7,7 +7,6 @@ import { OverlayDrawer } from './components/OverlayDrawer';
 import { MobileBottomNav, type MobileSection } from './components/MobileBottomNav';
 import { getProviderMeta } from './utils/providers';
 import {
-  BACKEND_URL,
   DEFAULT_ROBOTS,
   DEFAULT_STATE,
   DEFAULT_SYSTEM_PROMPT,
@@ -16,8 +15,17 @@ import {
   VALID_KEYWORDS,
 } from './lib/constants';
 import {
+  analyzePaper,
+  chatAgentStream,
+  deletePersistedPaper,
+  fetchBackendState,
+  fetchModelProviderStatus,
+  fetchPersistedPapers,
+  fileToBase64,
+  generateDocsStream,
   generateParamsForCustomPaper,
   getLocalRobotMatches,
+  matchScenarios,
   syncBackendState,
 } from './lib/api';
 import {
@@ -25,6 +33,7 @@ import {
   generateBpDoc,
   generateClinicalDoc,
 } from './utils/docGenerators';
+import { buildLocalParamCitations } from './utils/docExporters';
 import { processLocalChatCommand } from './utils/localChatEngine';
 import { useModelStore } from './stores/modelStore';
 import type {
@@ -32,6 +41,7 @@ import type {
   ChatMessage,
   CustomPaper,
   DrawerType,
+  ParamCitation,
   RAGReference,
   RobotMatch,
   RunCacheEntry,
@@ -56,6 +66,7 @@ function App() {
   // Model & API Configuration
   const [apiKey, setApiKey] = useState('');
   const [isApiConfigured, setIsApiConfigured] = useState(false);
+  const [hasServerModelKey, setHasServerModelKey] = useState(false);
   const [backendAvailable, setBackendAvailable] = useState(false);
   const [isOnlineMode, setIsOnlineMode] = useState(false);
   const [modelProvider, setModelProvider] = useState('DeepSeek');
@@ -78,7 +89,12 @@ function App() {
   const [matchedRobots, setMatchedRobots] = useState<RobotMatch[]>(DEFAULT_ROBOTS);
   const [clinicalDoc, setClinicalDoc] = useState('');
   const [bpDoc, setBpDoc] = useState('');
+  const [docSource, setDocSource] = useState<'llm' | 'template'>('template');
+  const [docProviderUsed, setDocProviderUsed] = useState<string | null>(null);
+  const [isDocsStale, setIsDocsStale] = useState(false);
+  const [isRegeneratingDocs, setIsRegeneratingDocs] = useState(false);
   const [ragReferences, setRagReferences] = useState<RAGReference[]>([]);
+  const [paramCitations, setParamCitations] = useState<Record<string, ParamCitation>>({});
   const [runCache, setRunCache] = useState<Record<string, RunCacheEntry>>({});
 
   // Layout, Drawers & Mobile Navigation
@@ -88,14 +104,13 @@ function App() {
 
   // HarmonyOS Synergy
   const [harmonySynced, setHarmonySynced] = useState(false);
-  const [isSyncingHarmony, setIsSyncingHarmony] = useState(false);
 
   // Copilot Chat States
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(INITIAL_CHAT);
   const [isSendingChat, setIsSendingChat] = useState(false);
 
-  // Refs to prevent tab hijacking (fixes P1-2) and clean up timers
+  // Refs to prevent tab hijacking and clean up timers
   const userSwitchedTabRef = useRef(false);
   const pipelineTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
 
@@ -123,6 +138,13 @@ function App() {
     return found?.title || state.paper_title || '未选择论文';
   }, [allVisiblePapers, selectedPaperId, state.paper_title]);
 
+  const selectedPaperContent = useMemo(() => {
+    const custom = customPapers.find((p) => p.id === selectedPaperId);
+    return custom?.content;
+  }, [customPapers, selectedPaperId]);
+
+  const canUseLLM = isOnlineMode && backendAvailable && (Boolean(apiKey.trim()) || hasServerModelKey);
+
   const clearPipelineTimers = () => {
     pipelineTimersRef.current.forEach((t) => clearTimeout(t));
     pipelineTimersRef.current = [];
@@ -136,27 +158,84 @@ function App() {
     const lower = apiKey.toLowerCase();
     if (lower.startsWith('sk-or-')) setModelProvider('OpenRouter');
     else if (lower.includes('pangu') || lower.includes('huawei') || lower.startsWith('hw-')) setModelProvider('Huawei Pangu');
-    else if (lower.includes('gemini') || lower.startsWith('ai_')) setModelProvider('Google Gemini');
+    else if (lower.includes('gemini') || lower.startsWith('ai_') || lower.startsWith('aiza')) setModelProvider('Google Gemini');
+    else if (lower.includes('zhipu') || lower.startsWith('gl-')) setModelProvider('Zhipu GLM');
     else if (lower.startsWith('sk-d') || lower.includes('deepseek')) setModelProvider('DeepSeek');
     else if (lower.startsWith('sk-')) setModelProvider('OpenAI');
   }, [apiKey]);
 
-  // Check FastAPI backend health on mount
+  // Check FastAPI backend health, restore persisted session papers & detect server-managed LLM keys
   useEffect(() => {
-    fetch(`${BACKEND_URL}/state`)
-      .then((res) => {
-        if (!res.ok) throw new Error('backend unavailable');
-        return res.json();
-      })
-      .then((data) => {
-        if (data && data.domain) setState(data);
+    let cancelled = false;
+    (async () => {
+      const [backendState, persistedPapers, modelStatus] = await Promise.all([
+        fetchBackendState(),
+        fetchPersistedPapers(),
+        fetchModelProviderStatus(),
+      ]);
+
+      if (cancelled) return;
+
+      if (backendState && backendState.domain) {
+        setState(backendState);
         setBackendAvailable(true);
         setIsOnlineMode(true);
-      })
-      .catch(() => {
+      } else {
         setBackendAvailable(false);
         setIsOnlineMode(false);
-      });
+      }
+
+      if (modelStatus) {
+        setHasServerModelKey(Boolean(modelStatus.has_server_key));
+      }
+
+      if (persistedPapers.length > 0) {
+        const restoredCustom: CustomPaper[] = [];
+        const restoredCache: Record<string, RunCacheEntry> = {};
+        const presetIds = new Set(PRESET_PAPERS.map((p) => p.id));
+
+        for (const p of persistedPapers) {
+          if (!presetIds.has(p.id)) {
+            restoredCustom.push({
+              id: p.id,
+              title: p.title,
+              isCustom: true,
+              content: p.content,
+              params: p.params,
+            });
+          }
+          if (p.clinical_doc && p.bp_doc) {
+            restoredCache[p.id] = {
+              pipelineStep: 3,
+              currentTab: 'params',
+              state: p.params,
+              matchedRobots: getLocalRobotMatches(p.params.domain, p.params.target_department),
+              clinicalDoc: p.clinical_doc,
+              bpDoc: p.bp_doc,
+              docSource: p.doc_source || 'template',
+              docProviderUsed: null,
+              isDocsStale: false,
+              ragReferences: FRONTEND_KNOWLEDGE_BASE[p.params.domain || 'devices'] || [],
+              paramCitations: buildLocalParamCitations(p.params, p.content),
+              harmonySynced: false,
+            };
+          }
+        }
+
+        if (restoredCustom.length > 0) {
+          setCustomPapers((prev) => {
+            const existing = new Set(prev.map((x) => x.id));
+            return [...prev, ...restoredCustom.filter((x) => !existing.has(x.id))];
+          });
+        }
+        if (Object.keys(restoredCache).length > 0) {
+          setRunCache((prev) => ({ ...restoredCache, ...prev }));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Sync current paper's run state into cache
@@ -171,7 +250,11 @@ function App() {
           matchedRobots,
           clinicalDoc,
           bpDoc,
+          docSource,
+          docProviderUsed,
+          isDocsStale,
           ragReferences,
+          paramCitations,
           harmonySynced,
         },
       }));
@@ -183,21 +266,33 @@ function App() {
     matchedRobots,
     clinicalDoc,
     bpDoc,
+    docSource,
+    docProviderUsed,
+    isDocsStale,
     ragReferences,
+    paramCitations,
     harmonySynced,
     selectedPaperId,
   ]);
 
-  // Keep local clinical & BP docs in sync with state whenever stage 3 is active
+  // Fix broken link #4: only auto-regenerate template docs when docSource === 'template' and not actively streaming.
+  // When docSource === 'llm', preserve LLM output instead of silently overwriting with local templates!
   useEffect(() => {
     if (pipelineStep !== 3) {
       setClinicalDoc('');
       setBpDoc('');
+      setIsDocsStale(false);
       return;
     }
-    setClinicalDoc(generateClinicalDoc(state));
-    setBpDoc(generateBpDoc(state));
-  }, [state, pipelineStep]);
+    if (isAnalyzing || isRegeneratingDocs) {
+      return;
+    }
+    if (docSource === 'template') {
+      setClinicalDoc(generateClinicalDoc(state));
+      setBpDoc(generateBpDoc(state));
+      setIsDocsStale(false);
+    }
+  }, [state, pipelineStep, docSource, isAnalyzing, isRegeneratingDocs]);
 
   const handleSelectPaper = (paperId: string, paperParams: AppParams) => {
     if (isAnalyzing) return;
@@ -212,7 +307,11 @@ function App() {
           matchedRobots,
           clinicalDoc,
           bpDoc,
+          docSource,
+          docProviderUsed,
+          isDocsStale,
           ragReferences,
+          paramCitations,
           harmonySynced,
         },
       }));
@@ -229,7 +328,11 @@ function App() {
       setMatchedRobots(cached.matchedRobots);
       setClinicalDoc(cached.clinicalDoc);
       setBpDoc(cached.bpDoc);
+      setDocSource(cached.docSource || 'template');
+      setDocProviderUsed(cached.docProviderUsed ?? null);
+      setIsDocsStale(Boolean(cached.isDocsStale));
       setRagReferences(cached.ragReferences);
+      setParamCitations(cached.paramCitations || buildLocalParamCitations(cached.state));
       setHarmonySynced(cached.harmonySynced);
     } else {
       setPipelineStep(0);
@@ -238,7 +341,11 @@ function App() {
       setMatchedRobots(getLocalRobotMatches(paperParams.domain, paperParams.target_department));
       setClinicalDoc('');
       setBpDoc('');
+      setDocSource('template');
+      setDocProviderUsed(null);
+      setIsDocsStale(false);
       setRagReferences([]);
+      setParamCitations({});
       setHarmonySynced(false);
     }
 
@@ -252,6 +359,9 @@ function App() {
       setDeletedPresetIds((prev) => new Set(prev).add(id));
     } else {
       setCustomPapers((prev) => prev.filter((p) => p.id !== id));
+      if (backendAvailable) {
+        deletePersistedPaper(id);
+      }
     }
 
     setRunCache((prev) => {
@@ -278,70 +388,95 @@ function App() {
     }
   };
 
-  const handleUploadFile = (file: File) => {
+  // Fix broken link #1: encode full PDF/MD/TXT bytes to base64 and send to backend for real PDF text extraction
+  const handleUploadFile = async (file: File) => {
     setUploadError(null);
-    const reader = new FileReader();
-    const isText = file.name.endsWith('.txt') || file.name.endsWith('.md');
+    setIsUploading(true);
+    const title = file.name.replace(/\.[^/.]+$/, '');
+    const isText = file.name.toLowerCase().endsWith('.txt') || file.name.toLowerCase().endsWith('.md');
+    const paperId = 'custom-' + Date.now();
 
-    reader.onload = async (e) => {
-      const textContent = isText ? (e.target?.result as string) || '' : '';
-      const title = file.name.replace(/\.[^/.]+$/, '');
-      setIsUploading(true);
+    let textContent = '';
+    let base64Content = '';
+    try {
+      if (isText) {
+        textContent = await file.text();
+      }
+      base64Content = await fileToBase64(file);
+    } catch {
+      setIsUploading(false);
+      setUploadError('读取本地文件失败，请重试。');
+      return;
+    }
 
-      try {
-        const res = await fetch(`${BACKEND_URL}/analyze-paper`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title,
-            content: textContent.substring(0, 4000),
-            api_key: isOnlineMode ? apiKey || null : null,
-            provider: isOnlineMode ? modelProvider : null,
-          }),
-        });
-        const data = await res.json();
-        setIsUploading(false);
+    if (backendAvailable) {
+      const data = await analyzePaper(
+        title,
+        textContent.substring(0, 15000),
+        isOnlineMode ? apiKey || null : null,
+        isOnlineMode ? modelProvider : null,
+        {
+          fileBase64: base64Content,
+          filename: file.name,
+          paperId,
+        }
+      );
 
+      setIsUploading(false);
+
+      if (data) {
         if (data.status === 'warning' || !data.is_valid) {
           setUploadError(`文件校验未通过：${data.reason || '不属于转化医学相关文献'}`);
           return;
         }
 
+        if (data.input_tokens !== undefined || data.output_tokens !== undefined) {
+          modelStore.updateTokenMetrics({
+            input_tokens: data.input_tokens || 0,
+            output_tokens: data.output_tokens || 0,
+            latency_ms: data.latency_ms || 0,
+            model_name: data.model_name,
+            provider_id: data.provider_used,
+          });
+        }
+
         const verifiedParams: AppParams = data.state;
+        const extractedText = data.extracted_text || textContent;
         const newPaper: CustomPaper = {
-          id: 'custom-' + Date.now(),
+          id: data.paper_id || paperId,
           title,
           isCustom: true,
-          content: textContent,
+          content: extractedText,
           params: verifiedParams,
         };
         setCustomPapers((prev) => [...prev, newPaper]);
         handleSelectPaper(newPaper.id, verifiedParams);
-      } catch {
-        setIsUploading(false);
-        const textToCheck = (file.name + ' ' + textContent).toLowerCase();
-        const hasKeyword = VALID_KEYWORDS.some((kw) => textToCheck.includes(kw));
-
-        if (!hasKeyword) {
-          setUploadError('本地规则校验未通过：文档未包含转化医学、临床或生医工程核心术语，已拒绝导入。');
-          return;
-        }
-
-        const localParams = generateParamsForCustomPaper(file.name, textContent);
-        const newPaper: CustomPaper = {
-          id: 'custom-' + Date.now(),
-          title,
-          isCustom: true,
-          content: textContent,
-          params: localParams,
-        };
-        setCustomPapers((prev) => [...prev, newPaper]);
-        handleSelectPaper(newPaper.id, localParams);
+        return;
       }
-    };
+    }
 
-    if (isText) reader.readAsText(file);
-    else reader.readAsArrayBuffer(file.slice(0, 1000));
+    // Offline fallback when backend is not running
+    setIsUploading(false);
+    const textToCheck = (file.name + ' ' + textContent).toLowerCase();
+    const hasKeyword = VALID_KEYWORDS.some((kw) => textToCheck.includes(kw));
+
+    if (!hasKeyword) {
+      setUploadError(
+        '离线本地校验未通过：后端服务未运行且文件名/文本未包含转化医学核心术语，请启动 FastAPI 后端以支持真实 PDF 正文解析。'
+      );
+      return;
+    }
+
+    const localParams = generateParamsForCustomPaper(file.name, textContent);
+    const newPaper: CustomPaper = {
+      id: paperId,
+      title,
+      isCustom: true,
+      content: textContent,
+      params: localParams,
+    };
+    setCustomPapers((prev) => [...prev, newPaper]);
+    handleSelectPaper(newPaper.id, localParams);
   };
 
   const handleClearResults = () => {
@@ -352,7 +487,11 @@ function App() {
     setAnalysisError(null);
     setClinicalDoc('');
     setBpDoc('');
+    setDocSource('template');
+    setDocProviderUsed(null);
+    setIsDocsStale(false);
     setRagReferences([]);
+    setParamCitations({});
     setHarmonySynced(false);
 
     let defaultParams = DEFAULT_STATE;
@@ -369,6 +508,59 @@ function App() {
 
     if (isOnlineMode && backendAvailable) {
       syncBackendState(defaultParams);
+    }
+  };
+
+  const handleRegenerateDocs = async () => {
+    if (isRegeneratingDocs) return;
+    if (!isOnlineMode || !backendAvailable) {
+      setDocSource('template');
+      setDocProviderUsed(null);
+      setClinicalDoc(generateClinicalDoc(state));
+      setBpDoc(generateBpDoc(state));
+      setIsDocsStale(false);
+      return;
+    }
+
+    setIsRegeneratingDocs(true);
+    try {
+      const data = await generateDocsStream(
+        apiKey || null,
+        modelProvider || null,
+        state,
+        selectedPaperId,
+        {
+          onStart: (src) => {
+            setDocSource(src);
+            setClinicalDoc('');
+            setBpDoc('');
+          },
+          onReset: () => {
+            setClinicalDoc('');
+            setBpDoc('');
+          },
+          onClinicalDelta: (_delta, acc) => setClinicalDoc(acc),
+          onBpDelta: (_delta, acc) => setBpDoc(acc),
+        }
+      );
+      if (data?.clinical_trial_protocol && data?.business_plan) {
+        setClinicalDoc(data.clinical_trial_protocol);
+        setBpDoc(data.business_plan);
+        setDocSource(data.doc_source === 'llm' ? 'llm' : 'template');
+        setDocProviderUsed(data.provider_used || null);
+        setIsDocsStale(false);
+        if (data.input_tokens !== undefined || data.output_tokens !== undefined) {
+          modelStore.updateTokenMetrics({
+            input_tokens: data.input_tokens || 0,
+            output_tokens: data.output_tokens || 0,
+            latency_ms: data.latency_ms || 0,
+            model_name: data.model_name,
+            provider_id: data.provider_used,
+          });
+        }
+      }
+    } finally {
+      setIsRegeneratingDocs(false);
     }
   };
 
@@ -393,18 +585,14 @@ function App() {
 
     let nextState = state;
     if (isOnlineMode && backendAvailable) {
-      try {
-        const res = await fetch(`${BACKEND_URL}/analyze-paper`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: paperTitle,
-            content: paperContent,
-            api_key: apiKey || null,
-            provider: modelProvider || null,
-          }),
-        });
-        const data = await res.json();
+      const data = await analyzePaper(
+        paperTitle,
+        paperContent,
+        apiKey || null,
+        modelProvider || null,
+        { paperId: selectedPaperId }
+      );
+      if (data) {
         if (data.status === 'warning' || !data.is_valid) {
           setAnalysisError(`分析警告：${data.reason || '该文献未通过医学转化相关性检验'}`);
           setIsAnalyzing(false);
@@ -418,28 +606,42 @@ function App() {
             ? data.rag_references
             : FRONTEND_KNOWLEDGE_BASE[nextState.domain || 'devices']
         );
-      } catch {
+        setParamCitations(
+          data.param_citations && Object.keys(data.param_citations).length > 0
+            ? data.param_citations
+            : buildLocalParamCitations(nextState, paperContent)
+        );
+        if (data.input_tokens !== undefined || data.output_tokens !== undefined) {
+          modelStore.updateTokenMetrics({
+            input_tokens: data.input_tokens || 0,
+            output_tokens: data.output_tokens || 0,
+            latency_ms: data.latency_ms || 0,
+            model_name: data.model_name,
+            provider_id: data.provider_used,
+          });
+        }
+      } else {
         setRagReferences(FRONTEND_KNOWLEDGE_BASE[nextState.domain || 'devices']);
+        setParamCitations(buildLocalParamCitations(nextState, paperContent));
       }
     } else {
       setRagReferences(FRONTEND_KNOWLEDGE_BASE[nextState.domain || 'devices']);
+      setParamCitations(buildLocalParamCitations(nextState, paperContent));
     }
 
     const t1 = setTimeout(async () => {
       setPipelineStep(2);
-      // Only auto-advance if user hasn't manually clicked a tab (fixes P1-2)
       if (!userSwitchedTabRef.current) setCurrentTab('matching');
 
       if (isOnlineMode && backendAvailable) {
-        try {
-          const res = await fetch(
-            `${BACKEND_URL}/match-scenarios?domain=${encodeURIComponent(nextState.domain)}&wavelength=${encodeURIComponent(
-              String(nextState.excitation_wavelength)
-            )}&department=${encodeURIComponent(nextState.target_department)}`
-          );
-          const data = await res.json();
-          if (data?.matches) setMatchedRobots(data.matches);
-        } catch {
+        const matches = await matchScenarios(
+          nextState.domain,
+          nextState.excitation_wavelength,
+          nextState.target_department
+        );
+        if (matches) {
+          setMatchedRobots(matches);
+        } else {
           setMatchedRobots(getLocalRobotMatches(nextState.domain, nextState.target_department));
         }
       } else {
@@ -447,51 +649,100 @@ function App() {
       }
 
       const t2 = setTimeout(async () => {
-        setPipelineStep(3);
-        // Stay on params after complete if user didn't switch so they immediately see their primary dashboard, or show docs when clicking tab
-        if (!userSwitchedTabRef.current) setCurrentTab('params');
-
         if (isOnlineMode && backendAvailable) {
-          try {
-            const res = await fetch(`${BACKEND_URL}/generate-docs`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                api_key: apiKey || null,
-                provider: modelProvider || null,
-                state: nextState,
-              }),
-            });
-            const data = await res.json();
-            if (data?.clinical_trial_protocol) setClinicalDoc(data.clinical_trial_protocol);
-            if (data?.business_plan) setBpDoc(data.business_plan);
-          } catch {
-            // local useEffect already populates clinicalDoc & bpDoc
+          const docData = await generateDocsStream(
+            apiKey || null,
+            modelProvider || null,
+            nextState,
+            selectedPaperId,
+            {
+              onStart: (src) => {
+                setDocSource(src);
+                setClinicalDoc('');
+                setBpDoc('');
+              },
+              onReset: () => {
+                setClinicalDoc('');
+                setBpDoc('');
+              },
+              onClinicalDelta: (_delta, acc) => setClinicalDoc(acc),
+              onBpDelta: (_delta, acc) => setBpDoc(acc),
+            }
+          );
+          if (docData?.clinical_trial_protocol && docData?.business_plan) {
+            const source = docData.doc_source === 'llm' ? 'llm' : 'template';
+            setDocSource(source);
+            setDocProviderUsed(docData.provider_used || null);
+            setClinicalDoc(docData.clinical_trial_protocol);
+            setBpDoc(docData.business_plan);
+            setIsDocsStale(false);
+            if (docData.input_tokens !== undefined || docData.output_tokens !== undefined) {
+              modelStore.updateTokenMetrics({
+                input_tokens: docData.input_tokens || 0,
+                output_tokens: docData.output_tokens || 0,
+                latency_ms: docData.latency_ms || 0,
+                model_name: docData.model_name,
+                provider_id: docData.provider_used,
+              });
+            }
+          } else {
+            setDocSource('template');
+            setDocProviderUsed(null);
+            setClinicalDoc(generateClinicalDoc(nextState));
+            setBpDoc(generateBpDoc(nextState));
+            setIsDocsStale(false);
           }
+        } else {
+          setDocSource('template');
+          setDocProviderUsed(null);
+          setClinicalDoc(generateClinicalDoc(nextState));
+          setBpDoc(generateBpDoc(nextState));
+          setIsDocsStale(false);
         }
+
+        setPipelineStep(3);
+        if (!userSwitchedTabRef.current) setCurrentTab('params');
         setIsAnalyzing(false);
-      }, 1100);
+      }, 650);
       pipelineTimersRef.current.push(t2);
-    }, 1100);
+    }, 650);
     pipelineTimersRef.current.push(t1);
   };
 
-  // Inline click-to-edit on MetricTile cards (implements P2-2 & Figma A4 editing state)
-  const handleInlineUpdateParam = (key: keyof AppParams, value: number | string, label: string) => {
+  // Inline click-to-edit on MetricTile cards
+  const handleInlineUpdateParam = async (
+    key: keyof AppParams,
+    value: number | string,
+    label: string
+  ) => {
     const prevState = state;
     const nextState: AppParams = { ...state, [key]: value };
 
-    // Keep emission wavelength coupled when excitation is edited in devices domain
     if (key === 'excitation_wavelength' && typeof value === 'number') {
       nextState.emission_wavelength = value + 30;
     }
 
     const diffs = computeStateDiffs(prevState, nextState);
     setState(nextState);
-    setMatchedRobots(getLocalRobotMatches(nextState.domain, nextState.target_department));
+
+    if (pipelineStep === 3 && docSource === 'llm') {
+      setIsDocsStale(true);
+    }
 
     if (isOnlineMode && backendAvailable) {
       syncBackendState(nextState);
+      const liveMatches = await matchScenarios(
+        nextState.domain,
+        nextState.excitation_wavelength,
+        nextState.target_department
+      );
+      if (liveMatches) {
+        setMatchedRobots(liveMatches);
+      } else {
+        setMatchedRobots(getLocalRobotMatches(nextState.domain, nextState.target_department));
+      }
+    } else {
+      setMatchedRobots(getLocalRobotMatches(nextState.domain, nextState.target_department));
     }
 
     if (diffs.length > 0) {
@@ -499,7 +750,10 @@ function App() {
         ...prev,
         {
           sender: 'assistant',
-          text: `已同步就地编辑的「${label}」，PK 曲线、场景权重与文档已实时重算：`,
+          text:
+            pipelineStep === 3 && docSource === 'llm'
+              ? `已同步就地编辑的「${label}」，PK 曲线与场景权重已重算；当前保留大模型生成的文档，您可在文档页点击「同步最新参数并重新生成」更新正文：`
+              : `已同步就地编辑的「${label}」，PK 曲线、场景权重与文档已实时重算：`,
           timestamp: formatNowTime(),
           provider: modelProvider,
           diffs,
@@ -524,13 +778,17 @@ function App() {
     );
     if (isAskingModel) {
       const meta = getProviderMeta(modelProvider);
-      const hasKey = apiKey ? `已配置 (${apiKey.substring(0, 6)}...)` : '未配置（本地规则引擎可用）';
+      const hasKey = apiKey
+        ? `已配置 (${apiKey.substring(0, 6)}...)`
+        : hasServerModelKey
+          ? '服务端 .env 已托管'
+          : '未配置（本地规则引擎可用）';
       setTimeout(() => {
         setChatMessages((prev) => [
           ...prev,
           {
             sender: 'assistant',
-            text: `当前激活模型路由：**${meta.label}**（底座 \`${meta.modelName}\`），API Key 状态：\`${hasKey}\`。您可以随时在顶部栏或上方图标栏一键切换供应商。`,
+            text: `当前激活模型路由：**${meta.label}**（底座 \`${meta.modelName}\`），API Key 状态：\`${hasKey}\`。您可以随时在顶部栏切换供应商。`,
             timestamp: formatNowTime(),
             provider: modelProvider,
           },
@@ -541,25 +799,46 @@ function App() {
     }
 
     if (isOnlineMode && backendAvailable) {
-      try {
-        const res = await fetch(`${BACKEND_URL}/chat-agent`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: userMsg,
-            api_key: apiKey || null,
-            provider: modelProvider || null,
-            system_prompt: systemPrompt,
-            clinical_doc: clinicalDoc,
-            bp_doc: bpDoc,
-            history: chatMessages.map((m) => ({
-              role: m.sender === 'user' ? 'user' : 'assistant',
-              content: m.text,
-            })),
-          }),
-        });
-        const data = await res.json();
+      let streamStarted = false;
+      const ts = formatNowTime();
 
+      const data = await chatAgentStream(
+        userMsg,
+        apiKey || null,
+        modelProvider || null,
+        systemPrompt,
+        clinicalDoc,
+        bpDoc,
+        chatMessages,
+        {
+          onDelta: (_delta, acc) => {
+            if (!streamStarted) {
+              streamStarted = true;
+              setChatMessages((prev) => [
+                ...prev,
+                {
+                  sender: 'assistant',
+                  text: acc,
+                  timestamp: ts,
+                  provider: modelProvider,
+                },
+              ]);
+            } else {
+              setChatMessages((prev) => {
+                if (prev.length === 0) return prev;
+                const next = [...prev];
+                next[next.length - 1] = {
+                  ...next[next.length - 1],
+                  text: acc,
+                };
+                return next;
+              });
+            }
+          },
+        }
+      );
+
+      if (data) {
         if (
           data.input_tokens !== undefined ||
           data.output_tokens !== undefined ||
@@ -578,38 +857,50 @@ function App() {
         if (data.state_updated && data.current_state) {
           diffs = computeStateDiffs(prevStateSnapshot, data.current_state);
           setState(data.current_state);
+          if (pipelineStep === 3 && docSource === 'llm') {
+            setIsDocsStale(true);
+          }
           setRagReferences(FRONTEND_KNOWLEDGE_BASE[data.current_state.domain || 'devices']);
-          try {
-            const matchRes = await fetch(
-              `${BACKEND_URL}/match-scenarios?domain=${encodeURIComponent(
-                data.current_state.domain
-              )}&wavelength=${encodeURIComponent(
-                String(data.current_state.excitation_wavelength)
-              )}&department=${encodeURIComponent(data.current_state.target_department)}`
-            );
-            const matchData = await matchRes.json();
-            if (matchData?.matches) setMatchedRobots(matchData.matches);
-          } catch {
+          const liveMatches = await matchScenarios(
+            data.current_state.domain,
+            data.current_state.excitation_wavelength,
+            data.current_state.target_department
+          );
+          if (liveMatches) {
+            setMatchedRobots(liveMatches);
+          } else {
             setMatchedRobots(
               getLocalRobotMatches(data.current_state.domain, data.current_state.target_department)
             );
           }
         }
 
-        setChatMessages((prev) => [
-          ...prev,
-          {
-            sender: 'assistant',
-            text: data.reply || '已完成参数微调与文档同步。',
-            timestamp: formatNowTime(),
-            provider: modelProvider,
-            diffs,
-          },
-        ]);
+        const finalText = data.reply || '已完成参数微调与文档同步。';
+        if (streamStarted) {
+          setChatMessages((prev) => {
+            if (prev.length === 0) return prev;
+            const next = [...prev];
+            next[next.length - 1] = {
+              ...next[next.length - 1],
+              text: finalText,
+              diffs,
+            };
+            return next;
+          });
+        } else {
+          setChatMessages((prev) => [
+            ...prev,
+            {
+              sender: 'assistant',
+              text: finalText,
+              timestamp: ts,
+              provider: modelProvider,
+              diffs,
+            },
+          ]);
+        }
         setIsSendingChat(false);
         return;
-      } catch {
-        // Gracefully fall through to local rule engine if request fails
       }
     }
 
@@ -630,11 +921,14 @@ function App() {
 
       if (updated) {
         setState(nextState);
+        if (pipelineStep === 3 && docSource === 'llm') {
+          setIsDocsStale(true);
+        }
         setRagReferences(FRONTEND_KNOWLEDGE_BASE[nextState.domain || 'devices']);
         setMatchedRobots(getLocalRobotMatches(nextState.domain, nextState.target_department));
       }
       setIsSendingChat(false);
-    }, 450);
+    }, 360);
   };
 
   const handleDownloadDoc = (filename: string, content: string) => {
@@ -667,6 +961,7 @@ function App() {
         apiKey={apiKey}
         onChangeApiKey={setApiKey}
         isApiConfigured={isApiConfigured}
+        hasServerModelKey={hasServerModelKey}
         onSaveApiKey={() => setIsApiConfigured(Boolean(apiKey.trim()))}
         onClearApiKey={() => {
           setApiKey('');
@@ -719,7 +1014,16 @@ function App() {
           matchedRobots={matchedRobots}
           clinicalDoc={clinicalDoc}
           bpDoc={bpDoc}
+          docSource={docSource}
+          docProviderUsed={docProviderUsed}
+          isDocsStale={isDocsStale}
+          isRegeneratingDocs={isRegeneratingDocs}
+          canUseLLM={canUseLLM}
+          onRegenerateDocs={handleRegenerateDocs}
+          onUpdateClinicalDoc={setClinicalDoc}
+          onUpdateBpDoc={setBpDoc}
           ragReferences={ragReferences}
+          paramCitations={paramCitations}
           onStartTranslation={handleStartTranslation}
           onInlineUpdateParam={handleInlineUpdateParam}
           onDownloadDoc={handleDownloadDoc}
@@ -758,17 +1062,12 @@ function App() {
         }}
         selectedPaperId={selectedPaperId}
         selectedPaperTitle={selectedPaperTitle}
+        selectedPaperContent={selectedPaperContent}
         state={state}
         ragReferences={ragReferences}
         harmonySynced={harmonySynced}
-        isSyncingHarmony={isSyncingHarmony}
-        onSyncHarmony={() => {
-          setIsSyncingHarmony(true);
-          setTimeout(() => {
-            setIsSyncingHarmony(false);
-            setHarmonySynced(true);
-          }, 900);
-        }}
+        isSyncingHarmony={false}
+        onSyncHarmony={() => setHarmonySynced(true)}
         onDisconnectHarmony={() => setHarmonySynced(false)}
         messages={chatMessages}
         chatInput={chatInput}

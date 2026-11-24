@@ -16,7 +16,7 @@ interface ModelSelectorProps {
 
 function ModelSelector({
   apiKey,
-  isApiConfigured,
+  isApiConfigured: _isApiConfigured,
   isOnlineMode,
   backendAvailable,
   modelProvider,

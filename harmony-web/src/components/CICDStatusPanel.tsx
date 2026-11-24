@@ -9,6 +9,7 @@ import {
   Loader2,
   FileBarChart,
 } from 'lucide-react';
+import { BACKEND_URL } from '../lib/constants';
 
 interface PipelineStatusData {
   pipeline_id: string;
@@ -66,7 +67,7 @@ const FALLBACK_QUALITY: QualityReport = {
 };
 
 const CICDStatusPanel: React.FC<CICDStatusPanelProps> = ({
-  backendUrl = 'http://127.0.0.1:8000/api/cicd',
+  backendUrl = `${BACKEND_URL}/cicd`,
 }) => {
   const [activeTab, setActiveTab] = useState<TabKey>('status');
   const [statusData, setStatusData] = useState<{ status: string; data: PipelineStatusData | null } | null>(null);

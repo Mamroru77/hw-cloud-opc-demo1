@@ -1,6 +1,21 @@
 import type { RAGReference, PresetPaper, RobotMatch, AppParams, ChatMessage } from './types';
 
-export const BACKEND_URL = "http://127.0.0.1:8000/api";
+export const BACKEND_URL: string =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ||
+  'http://127.0.0.1:8000/api';
+
+export function getBackendWsUrl(path: string): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (BACKEND_URL.startsWith('https://')) {
+    return `${BACKEND_URL.replace(/^https:\/\//, 'wss://')}${normalizedPath}`;
+  }
+  if (BACKEND_URL.startsWith('http://')) {
+    return `${BACKEND_URL.replace(/^http:\/\//, 'ws://')}${normalizedPath}`;
+  }
+  const proto = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = typeof window !== 'undefined' ? window.location.host : '127.0.0.1:8000';
+  return `${proto}//${host}${BACKEND_URL}${normalizedPath}`;
+}
 
 export const FRONTEND_KNOWLEDGE_BASE: Record<string, RAGReference[]> = {
   "devices": [

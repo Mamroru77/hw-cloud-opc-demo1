@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { Pencil } from 'lucide-react';
+import { Pencil, Quote, X } from 'lucide-react';
 import { CustomEChart } from './CustomEChart';
 import { buildPkChartOption } from '../utils/chartOptions';
-import type { AppParams, RAGReference } from '../lib/types';
+import type { AppParams, ParamCitation, RAGReference } from '../lib/types';
 
 interface MetricSpec {
   key: keyof AppParams;
@@ -17,7 +17,33 @@ interface MetricSpec {
 interface ParamsTabProps {
   state: AppParams;
   ragReferences: RAGReference[];
+  paramCitations?: Record<string, ParamCitation>;
   onInlineUpdateParam: (key: keyof AppParams, value: number | string, label: string) => void;
+}
+
+function getCitationSourceLabel(source?: ParamCitation['source']): string {
+  if (source === 'pdf_grounding') return 'PDF 原文提取';
+  if (source === 'llm_grounding') return 'LLM 语义定位';
+  return 'RAG 法规校准';
+}
+
+function highlightCitationText(quote: string, targetValue: string): React.ReactNode {
+  const token = targetValue.trim();
+  if (!token || token.length < 2) return quote;
+  const idx = quote.toLowerCase().indexOf(token.toLowerCase());
+  if (idx < 0) return quote;
+  const before = quote.slice(0, idx);
+  const match = quote.slice(idx, idx + token.length);
+  const after = quote.slice(idx + token.length);
+  return (
+    <>
+      {before}
+      <mark style={{ background: 'rgba(37, 99, 235, 0.16)', color: 'var(--ym-text-primary)', padding: '0 3px', borderRadius: 3, fontWeight: 600 }}>
+        {match}
+      </mark>
+      {after}
+    </>
+  );
 }
 
 function getMetricSpecs(domain: string): MetricSpec[] {
@@ -64,11 +90,13 @@ function getMetricSpecs(domain: string): MetricSpec[] {
 export const ParamsTab: React.FC<ParamsTabProps> = ({
   state,
   ragReferences,
+  paramCitations = {},
   onInlineUpdateParam,
 }) => {
   const domain = state.domain || 'devices';
   const [editingKey, setEditingKey] = useState<keyof AppParams | null>(null);
   const [draftVal, setDraftVal] = useState('');
+  const [selectedCiteKey, setSelectedCiteKey] = useState<keyof AppParams | null>(null);
 
   const pkChartOption = useMemo(() => buildPkChartOption(state), [state]);
   const specs = useMemo(() => getMetricSpecs(domain), [domain]);
@@ -233,6 +261,8 @@ export const ParamsTab: React.FC<ParamsTabProps> = ({
             {specs.map((spec) => {
               const isEditing = editingKey === spec.key;
               const rawVal = state[spec.key];
+              const citation = paramCitations[spec.key];
+              const isCited = selectedCiteKey === spec.key;
 
               if (isEditing) {
                 return (
@@ -263,27 +293,80 @@ export const ParamsTab: React.FC<ParamsTabProps> = ({
               }
 
               return (
-                <button
+                <div
                   key={spec.key}
-                  type="button"
-                  className="ym-metric-tile"
-                  onClick={() => startEdit(spec)}
-                  aria-label={`编辑 ${spec.label}，当前值 ${rawVal}${spec.unit ? ` ${spec.unit}` : ''}`}
+                  className={`ym-metric-card-wrap ${isCited ? 'active-cite' : ''}`}
                 >
-                  <div className="ym-metric-top">
-                    <span className="ym-metric-k">{spec.label}</span>
-                    <Pencil size={12} className="ym-metric-edit-cue" />
-                  </div>
-                  <div className="ym-metric-val-row">
-                    <span className={`ym-metric-val ${spec.compact ? 'compact' : ''}`}>
-                      {String(rawVal)}
-                    </span>
-                    {spec.unit && <span className="ym-metric-unit">{spec.unit}</span>}
-                  </div>
-                </button>
+                  <button
+                    type="button"
+                    className="ym-metric-tile"
+                    onClick={() => startEdit(spec)}
+                    aria-label={`编辑 ${spec.label}，当前值 ${rawVal}${spec.unit ? ` ${spec.unit}` : ''}`}
+                  >
+                    <div className="ym-metric-top">
+                      <span className="ym-metric-k">{spec.label}</span>
+                      <Pencil size={12} className="ym-metric-edit-cue" />
+                    </div>
+                    <div className="ym-metric-val-row">
+                      <span className={`ym-metric-val ${spec.compact ? 'compact' : ''}`}>
+                        {String(rawVal)}
+                      </span>
+                      {spec.unit && <span className="ym-metric-unit">{spec.unit}</span>}
+                    </div>
+                  </button>
+                  {citation && (
+                    <div className="ym-metric-cite-row">
+                      <button
+                        type="button"
+                        className={`ym-metric-cite-pill ${citation.source === 'rag_calibrated' ? 'rag' : ''}`}
+                        onClick={() => setSelectedCiteKey((prev) => (prev === spec.key ? null : spec.key))}
+                        aria-label={`查看 ${spec.label} 原文溯源`}
+                      >
+                        <Quote size={10} />
+                        <span>
+                          P.{citation.page || 1} {citation.source === 'rag_calibrated' ? '法规校准' : '原文溯源'}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
+
+          {selectedCiteKey && paramCitations[selectedCiteKey] && (
+            <div className="ym-cite-drawer" role="region" aria-label="参数原文溯源详情">
+              <div className="ym-cite-drawer-head">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Quote size={13} style={{ color: 'var(--ym-text-accent)' }} />
+                  <span>
+                    {specs.find((s) => s.key === selectedCiteKey)?.label || selectedCiteKey} · 第{' '}
+                    {paramCitations[selectedCiteKey].page || 1} 页溯源凭据
+                  </span>
+                </span>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span className="ym-cite-source-tag">
+                    {getCitationSourceLabel(paramCitations[selectedCiteKey].source)}
+                  </span>
+                  <button
+                    type="button"
+                    className="ym-icon-btn"
+                    style={{ width: 22, height: 22 }}
+                    aria-label="关闭溯源详情"
+                    onClick={() => setSelectedCiteKey(null)}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              </div>
+              <p className="ym-cite-quote">
+                {highlightCitationText(
+                  paramCitations[selectedCiteKey].quote,
+                  String(state[selectedCiteKey] ?? '')
+                )}
+              </p>
+            </div>
+          )}
 
           <div className="ym-safety-panel">
             <div className="ym-sp-head">

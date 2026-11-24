@@ -10,14 +10,14 @@ export function generateClinicalDoc(state: AppParams): string {
     const indication = state.indication || '非小细胞肺癌';
     const halfLife = state.drug_half_life || 12.0;
     const dltDose = state.dlt_dose || 400.0;
-    return `# 《${state.paper_title}》临床试验设计方案草案 (Phase I/II)
+    return `# 🏥 《${state.paper_title}》临床试验设计方案草案 (Phase I/II)
 
 ## 1. 试验基本信息与研究目的
 * **研发靶点**：${target}
 * **目标适应症**：${indication}
 * **试验分期**：I 期临床研究 (IND 获批后阶段)
 * **首要目的**：在受试者中评估靶向药物对 ${indication} 的耐受性、安全性，并确定最大耐受剂量 (MTD) 及限制毒性剂量 (DLT)。
-* **次要目的**：测定单次与多次给药的药代动力学参数（血浆消除半衰期预计为 ${halfLife} 小时），并评估主要疗效终点（${state.primary_endpoint || 'ORR'}）。
+* **次要目的**：测定单次与多次给药的药代动力学参数（血浆消除半衰期预计为 ${halfLife} 小时），并评估主要疗效终点（${state.primary_endpoint || 'ORR (客观缓解率)'}）。
 
 ## 2. 受试者入组与排除标准
 ### 2.1 入组标准
@@ -49,7 +49,7 @@ export function generateClinicalDoc(state: AppParams): string {
     const acc = state.accuracy || 92.4;
     const latency = state.latency || 18.5;
     const std = state.integration_standard || 'DICOM 3.0';
-    return `# 《${state.paper_title}》SaMD 临床效能验证与质量控制方案
+    return `# 🏥 《${state.paper_title}》SaMD 临床效能验证与质量控制方案
 
 ## 1. 试验基本信息与研究目的
 * **软件分类**：医疗器械软件 (SaMD - Software as a Medical Device)
@@ -85,7 +85,7 @@ export function generateClinicalDoc(state: AppParams): string {
     const inst = state.core_instruments || '腹腔镜能量切割闭合器';
     const cases = state.learning_curve_cases || 25;
     const safety = state.safety_endpoint || '30天术后并发症率';
-    return `# 《${state.paper_title}》创新临床术式标准化路径指南与临床前评估
+    return `# 🏥 《${state.paper_title}》创新临床术式标准化路径指南与临床前评估
 
 ## 1. 术式基本信息与开发目的
 * **手术解剖部位**：${site}
@@ -117,7 +117,7 @@ export function generateClinicalDoc(state: AppParams): string {
   }
 
   const probeId = toInt(state.excitation_wavelength);
-  return `# 《${state.paper_title}》一期临床试验设计方案草案 (Phase I)
+  return `# 🏥 《${state.paper_title}》一期临床试验设计方案草案 (Phase I)
 
 ## 1. 试验基本信息与研究目的
 * **产品名称**：基于 ${state.excitation_wavelength}nm 激发的早期肿瘤靶向荧光探针（FL-Probe-${probeId}）
@@ -161,7 +161,7 @@ export function generateBpDoc(state: AppParams): string {
     const indication = state.indication || '非小细胞肺癌';
     const halfLife = state.drug_half_life || 12.0;
     const dltDose = state.dlt_dose || 400.0;
-    return `# 创新靶向新药（FL-Target-${target}）临床开发与商业融资计划书
+    return `# 🚀 创新靶向新药（FL-Target-${target}）临床开发与商业融资计划书
 
 ## 1. 行业痛点与未满足的临床需求
 目前在晚期 ${indication} 临床治疗中，传统化疗和免疫治疗面临响应率低、耐药性强和全身系统毒性高的瓶颈。针对 ${target} 突变或过表达靶点的创新靶向小分子药是当前行业突破口，旨在通过高特异性口袋结合设计攻克耐药难题。
@@ -195,7 +195,7 @@ export function generateBpDoc(state: AppParams): string {
     const acc = state.accuracy || 92.4;
     const latency = state.latency || 18.5;
     const std = state.integration_standard || 'DICOM 3.0';
-    return `# 创新 SaMD 医疗影像辅助智能诊断软件（AI-Vision-SaMD）商业化白皮书
+    return `# 🚀 创新 SaMD 医疗影像辅助智能诊断软件（AI-Vision-SaMD）商业化白皮书
 
 ## 1. 行业痛点与未满足的临床需求
 在临床放射和阅片流程中，阅片医生工作量高度饱和，对微小/边缘病灶漏诊率达 15%-20%。在 **${state.target_department}** 中，本 SaMD 软件基于 ${arch} 架构，实现 ${modality} 三维图像的像素级自动勾画与术前精准规划。
@@ -227,7 +227,7 @@ export function generateBpDoc(state: AppParams): string {
     const inst = state.core_instruments || '腹腔镜能量切割闭合器';
     const cases = state.learning_curve_cases || 25;
     const safety = state.safety_endpoint || '30天术后并发症率';
-    return `# 腹腔镜下改良 ${site} 临床新术式推广与技术推介书
+    return `# 🚀 腹腔镜下改良 ${site} 临床新术式推广与技术推介书
 
 ## 1. 行业痛点与未满足的临床需求
 传统针对 ${site} 的腔镜大范围切除与吻合重建学习曲线漫长、吻合口漏风险高。本术式改良切除游离与缝合路径，配合 **${inst}** 大幅降低操作门槛。
@@ -255,7 +255,7 @@ export function generateBpDoc(state: AppParams): string {
   }
 
   const probeId = toInt(state.excitation_wavelength);
-  return `# 创新早期肿瘤切除荧光探针（FL-Probe-${probeId}）商业融资计划书
+  return `# 🚀 创新早期肿瘤切除荧光探针（FL-Probe-${probeId}）商业融资计划书
 
 ## 1. 行业痛点与未满足的临床需求
 在早期肿瘤切除手术中，医生难以仅凭肉眼精确界定肿瘤边界。在 **${state.target_department}** 高难度切除术中，本产品结合 AI4S 靶向探针与荧光手术机器人实现毫米级实时导航，显著降低病灶残留率。

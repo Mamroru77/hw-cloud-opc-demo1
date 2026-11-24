@@ -19,6 +19,8 @@ def test_models_benchmark(client):
 def test_pangu_adapter_is_proxy_false():
     adapter = PanguAdapter()
     assert adapter.is_proxy is False
+    assert "myhuaweicloud.com" in adapter.api_endpoint
+    assert "myhuawecloud.com" not in adapter.api_endpoint
 
 
 def test_glm_adapter_provider_id():

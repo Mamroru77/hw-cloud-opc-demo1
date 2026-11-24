@@ -8,6 +8,8 @@ export interface SearchResult {
   source: string;
   domain?: string;
   similarity_score?: number;
+  matched_terms?: string[];
+  reranked?: boolean;
 }
 
 interface UseVectorSearchReturn {
@@ -62,6 +64,8 @@ export function useVectorSearch(): UseVectorSearchReturn {
             source: e.source,
             domain: e.domain,
             similarity_score: e.similarity_score,
+            matched_terms: e.matched_terms,
+            reranked: e.reranked,
           }));
 
           setResults(mapped);

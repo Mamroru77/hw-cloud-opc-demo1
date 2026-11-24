@@ -1,7 +1,16 @@
+export interface ParamCitation {
+  page?: number;
+  quote: string;
+  source?: 'pdf_grounding' | 'llm_grounding' | 'rag_calibrated';
+}
+
 export interface RAGReference {
+  id?: string;
   source: string;
   title: string;
   content: string;
+  domain?: string;
+  similarity_score?: number;
 }
 
 export interface RobotMatch {
@@ -94,6 +103,10 @@ export interface RunCacheEntry {
   matchedRobots: RobotMatch[];
   clinicalDoc: string;
   bpDoc: string;
+  docSource?: 'llm' | 'template';
+  docProviderUsed?: string | null;
+  isDocsStale?: boolean;
   ragReferences: RAGReference[];
+  paramCitations?: Record<string, ParamCitation>;
   harmonySynced: boolean;
 }

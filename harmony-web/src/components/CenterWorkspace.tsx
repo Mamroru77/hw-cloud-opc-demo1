@@ -4,7 +4,7 @@ import { YunmaiLogo } from './icons/BrandIcons';
 import { ParamsTab } from './ParamsTab';
 import { MatchingTab } from './MatchingTab';
 import { DocsTab } from './DocsTab';
-import type { AppParams, RAGReference, RobotMatch, WorkspaceTab } from '../lib/types';
+import type { AppParams, ParamCitation, RAGReference, RobotMatch, WorkspaceTab } from '../lib/types';
 
 interface CenterWorkspaceProps {
   currentTab: WorkspaceTab;
@@ -18,7 +18,16 @@ interface CenterWorkspaceProps {
   matchedRobots: RobotMatch[];
   clinicalDoc: string;
   bpDoc: string;
+  docSource?: 'llm' | 'template';
+  docProviderUsed?: string | null;
+  isDocsStale?: boolean;
+  isRegeneratingDocs?: boolean;
+  canUseLLM?: boolean;
+  onRegenerateDocs?: () => void;
+  onUpdateClinicalDoc?: (next: string) => void;
+  onUpdateBpDoc?: (next: string) => void;
   ragReferences: RAGReference[];
+  paramCitations?: Record<string, ParamCitation>;
   onStartTranslation: () => void;
   onInlineUpdateParam: (key: keyof AppParams, value: number | string, label: string) => void;
   onDownloadDoc: (filename: string, content: string) => void;
@@ -49,7 +58,16 @@ export const CenterWorkspace: React.FC<CenterWorkspaceProps> = ({
   matchedRobots,
   clinicalDoc,
   bpDoc,
+  docSource,
+  docProviderUsed,
+  isDocsStale,
+  isRegeneratingDocs,
+  canUseLLM,
+  onRegenerateDocs,
+  onUpdateClinicalDoc,
+  onUpdateBpDoc,
   ragReferences,
+  paramCitations,
   onStartTranslation,
   onInlineUpdateParam,
   onDownloadDoc,
@@ -194,6 +212,7 @@ export const CenterWorkspace: React.FC<CenterWorkspaceProps> = ({
               <ParamsTab
                 state={state}
                 ragReferences={ragReferences}
+                paramCitations={paramCitations}
                 onInlineUpdateParam={onInlineUpdateParam}
               />
             ))}
@@ -222,6 +241,16 @@ export const CenterWorkspace: React.FC<CenterWorkspaceProps> = ({
               <DocsTab
                 clinicalDoc={clinicalDoc}
                 bpDoc={bpDoc}
+                paperTitle={selectedPaperTitle}
+                domain={state.domain}
+                docSource={docSource}
+                docProviderUsed={docProviderUsed}
+                isDocsStale={isDocsStale}
+                isRegeneratingDocs={isRegeneratingDocs}
+                canUseLLM={canUseLLM}
+                onRegenerateDocs={onRegenerateDocs}
+                onUpdateClinicalDoc={onUpdateClinicalDoc}
+                onUpdateBpDoc={onUpdateBpDoc}
                 onDownload={onDownloadDoc}
               />
             ))}

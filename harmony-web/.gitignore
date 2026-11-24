@@ -26,8 +26,13 @@ venv/
 env/
 .env
 
-# ChromaDB data
+# ChromaDB & SQLite local runtime data
 chroma_data/
+backend/data/*.db
+backend/data/*.db-journal
+backend/data/*.db-wal
+backend/data/*.db-shm
+data/*.db*
 
 # IDE
 .vscode/*

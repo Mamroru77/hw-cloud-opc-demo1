@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ShieldCheck, Loader2 } from 'lucide-react';
 import { npuSanitize, type SanitizeResult } from '../lib/npuSanitizer';
+import { sanitizeTextViaBackend } from '../lib/api';
 
 interface NpuSandboxPanelProps {
   selectedPaperId: string;
@@ -8,97 +9,98 @@ interface NpuSandboxPanelProps {
   onSanitizeComplete?: (result: SanitizeResult) => void;
 }
 
+const DEFAULT_SAMPLE_TEXT =
+  '患者ID P12345678，就诊于北京协和医院，主治医师 张伟，联系电话13912345678，身份证号11010119900307891X，患者：李明，确诊为非小细胞肺癌III期。';
+
 function NpuSandboxPanel({ selectedPaperId, sampleText, onSanitizeComplete }: NpuSandboxPanelProps) {
+  const [inputText, setInputText] = useState<string>(sampleText || DEFAULT_SAMPLE_TEXT);
   const [status, setStatus] = useState<'idle' | 'running' | 'completed'>('idle');
-  const [progress, setProgress] = useState(0);
+  const [engineSource, setEngineSource] = useState<'backend' | 'local'>('backend');
   const [logs, setLogs] = useState<string[]>([]);
   const [sanitizeResult, setSanitizeResult] = useState<SanitizeResult | null>(null);
-  const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
-
-  const clearTimers = useCallback(() => {
-    timersRef.current.forEach((t) => clearTimeout(t));
-    timersRef.current = [];
-  }, []);
 
   useEffect(() => {
-    clearTimers();
+    setInputText(sampleText && sampleText.trim() ? sampleText.slice(0, 1200) : DEFAULT_SAMPLE_TEXT);
     setStatus('idle');
-    setProgress(0);
     setLogs([]);
     setSanitizeResult(null);
-    return clearTimers;
-  }, [selectedPaperId, clearTimers]);
+  }, [selectedPaperId, sampleText]);
 
-  const getDefaultText = useCallback((): string => {
-    if (sampleText) return sampleText;
-    return '患者ID P12345678，就诊于北京协和医院，主治医师 张伟，联系电话13912345678，身份证号11010119900307891X，患者：李明，确诊为非小细胞肺癌III期。';
-  }, [sampleText]);
-
-  const runSandbox = useCallback(() => {
-    clearTimers();
+  const runSandbox = useCallback(async () => {
+    const textToSanitize = inputText.trim() || DEFAULT_SAMPLE_TEXT;
     setStatus('running');
-    setProgress(0);
-    setLogs([]);
+    setLogs(['[1/3] 正在提交临床文本至后端脱敏引擎 (/api/harmony/sanitize)...']);
     setSanitizeResult(null);
 
-    const textToSanitize = getDefaultText();
-    const computedResult = npuSanitize(textToSanitize);
+    const startTime = performance.now();
+    const backendResult = await sanitizeTextViaBackend(textToSanitize);
+    const elapsedMs = Math.max(1, Math.round(performance.now() - startTime));
 
-    const steps = [
-      { p: 20, log: '[1/5] 文本扫描与隐私字段识别 - 扫描医学文本敏感实体...' },
-      { p: 40, log: '[2/5] 规则匹配与定位 - 匹配 6 条医疗隐私脱敏规则...' },
-      { p: 60, log: '[3/5] 端侧 NPU 正则替换与脱敏 - 执行字段替换...' },
-      { p: 80, log: '[4/5] SHA-256 哈希校验 - 验证脱敏完整性...' },
-      { p: 100, log: '[5/5] 安全传输确认 - 脱敏数据已通过安全校验，可安全上云' },
+    let finalResult: SanitizeResult;
+    let source: 'backend' | 'local';
+    if (backendResult) {
+      finalResult = backendResult;
+      source = 'backend';
+    } else {
+      finalResult = npuSanitize(textToSanitize);
+      source = 'local';
+    }
+
+    setEngineSource(source);
+    setSanitizeResult(finalResult);
+    onSanitizeComplete?.(finalResult);
+
+    const nextLogs = [
+      source === 'backend'
+        ? `[1/3] 已连接 FastAPI 脱敏引擎 (/api/harmony/sanitize)，耗时 ${elapsedMs} ms`
+        : '[1/3] 后端未在线，已降级为前端本地脱敏规则引擎',
+      `[2/3] 扫描字符数: ${textToSanitize.length}，命中敏感字段: ${finalResult.fields_sanitized}`,
+      finalResult.fields_sanitized > 0
+        ? `[3/3] 命中规则: ${finalResult.rules_applied.join(', ')} · 传输安全校验: ${finalResult.is_safe_for_transmission ? '通过' : '未通过'}`
+        : '[3/3] 未检测到敏感隐私字段，可直接安全上云',
     ];
-
-    steps.forEach((step, index) => {
-      const timer = setTimeout(() => {
-        setProgress(step.p);
-        if (index === 2) {
-          setSanitizeResult(computedResult);
-          onSanitizeComplete?.(computedResult);
-        }
-        setLogs((prev) => {
-          const next = [...prev, step.log];
-          if (index === steps.length - 1) {
-            if (computedResult.fields_sanitized > 0) {
-              next.push(`  ├─ 命中规则: ${computedResult.rules_applied.join(', ')}`);
-              next.push(`  ├─ 脱敏字段数: ${computedResult.fields_sanitized}`);
-              next.push(`  └─ 传输安全校验: ${computedResult.is_safe_for_transmission ? '通过' : '未通过'}`);
-            } else {
-              next.push('  └─ 未检测到隐私字段，可直接传输');
-            }
-            setStatus('completed');
-          }
-          return next;
-        });
-      }, (index + 1) * 420);
-      timersRef.current.push(timer);
-    });
-  }, [clearTimers, getDefaultText, onSanitizeComplete]);
+    setLogs(nextLogs);
+    setStatus('completed');
+  }, [inputText, onSanitizeComplete]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {status === 'idle' && (
-        <button type="button" className="ym-btn-secondary" style={{ width: '100%' }} onClick={runSandbox}>
-          启动 NPU 本地隐私校准
-        </button>
-      )}
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ym-text-muted)' }}>
+          待脱敏临床/文献文本（可粘贴真实病例或直接编辑）
+        </span>
+        <textarea
+          className="ym-input"
+          rows={3}
+          style={{
+            background: 'var(--ym-bg-sheet)',
+            resize: 'vertical',
+            fontFamily: 'inherit',
+            lineHeight: 1.5,
+            padding: '8px 10px',
+            height: 'auto',
+          }}
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+        />
+      </label>
 
-      {status === 'running' && (
-        <>
-          <div className="ym-npu-progress-track">
-            <div className="ym-npu-progress-fill" style={{ width: `${progress}%` }} />
-            <span className="ym-npu-progress-label">{progress}%</span>
-          </div>
-          <div className="ym-npu-console">
-            {logs.map((log, i) => (
-              <div key={i}>{log}</div>
-            ))}
-          </div>
-        </>
-      )}
+      <button
+        type="button"
+        className="ym-btn-secondary"
+        style={{ width: '100%' }}
+        disabled={status === 'running'}
+        onClick={runSandbox}
+      >
+        {status === 'running' ? (
+          <>
+            <Loader2 size={14} className="ym-spin" />
+            <span>正在执行脱敏校验...</span>
+          </>
+        ) : (
+          <span>{status === 'completed' ? '重新执行隐私脱敏' : '执行隐私脱敏校验'}</span>
+        )}
+      </button>
 
       {status === 'completed' && (
         <>
@@ -116,14 +118,14 @@ function NpuSandboxPanel({ selectedPaperId, sampleText, onSanitizeComplete }: Np
             }}
           >
             <ShieldCheck size={16} />
-            <span>本地沙箱自检通过 · 隐私泄露概率 0.00%</span>
+            <span>
+              {engineSource === 'backend' ? '后端引擎脱敏通过' : '本地兜底脱敏通过'} · 替换 {sanitizeResult?.fields_sanitized ?? 0} 处敏感字段
+            </span>
           </div>
 
-          {sanitizeResult && sanitizeResult.fields_sanitized > 0 && (
+          {sanitizeResult && (
             <div className="ym-npu-compare">
-              <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ym-text-muted)' }}>脱敏前原文</div>
-              <div className="ym-npu-compare-box original">{sanitizeResult.original}</div>
-              <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ym-text-muted)' }}>端侧 NPU 脱敏后</div>
+              <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ym-text-muted)' }}>脱敏后安全文本</div>
               <div className="ym-npu-compare-box sanitized">{sanitizeResult.sanitized}</div>
             </div>
           )}
@@ -133,10 +135,6 @@ function NpuSandboxPanel({ selectedPaperId, sampleText, onSanitizeComplete }: Np
               <div key={i}>{log}</div>
             ))}
           </div>
-
-          <button type="button" className="ym-btn-secondary" style={{ width: '100%' }} onClick={() => setStatus('idle')}>
-            重新运行校准
-          </button>
         </>
       )}
     </div>

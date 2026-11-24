@@ -15,8 +15,8 @@
 | 评分维度 | 分值 | 本端实现要点 |
 |:---|:---:|:---|
 | **创新应用** | 25 | 首个转化医学多智能体工作站，开创"论文→临床→商业"OPC全链路；四大细分领域（器械/制药/AI/术式）差异化方案 |
-| **技术架构** | 25 | React 19 + FastAPI 微服务 + 5模型降级链 + ChromaDB向量库 + Docker容器化；端边云协同鸿蒙适配；轻量化OPC架构支持一人独立开发部署运维 |
-| **功能完备** | 25 | 9个API路由模块 + 8个前端组件 + 3个Zustand Store + 27项pytest测试全部通过；Glassmorphic+Neumorphic专业级UI；双模降级（Demo/大模型联调） |
+| **技术架构** | 25 | React 19 + FastAPI (SSE 流式) + 5模型降级链 + SQLite WAL + ChromaDB/TF-IDF 混合检索 + Docker容器化；轻量化自包含 OPC 架构支持一人独立开发部署运维 |
+| **功能完备** | 25 | 11个API路由模块(33 REST/SSE端点) + 18个前端组件 + 3个Zustand Store + 39项后端测试全部通过；Arc × Craft UI；原文溯源、Function Calling、`.docx`/`.pdf` 导出与 JWT/RBAC |
 | **商业前景** | 25 | 精准服务苏州工业园区生物医药/医疗器械/AI诊断产业；明确的投资回报路径与市场推广可行性 |
 
 ### 华为云码道智能体专项加分（10分）
@@ -93,51 +93,60 @@ harmony-web/
 │   │   ├── deepseek_adapter.py     #     DeepSeek-V3
 │   │   ├── openai_adapter.py       #     GPT-4o
 │   │   └── gemini_adapter.py       #     Gemini Pro
-│   ├── infra/                      #   基础设施
-│   │   ├── chroma_client.py        #     ChromaDB向量库封装
-│   │   ├── knowledge_base.py       #     硬编码知识库(降级用)
+│   ├── infra/                      #   基础设施（5个模块）
+│   │   ├── chroma_client.py        #     ChromaDB向量库封装（支持 CHROMA_PERSIST_DIR）
+│   │   ├── db.py                   #     SQLite WAL 8表持久化与用户/法规种子初始化
+│   │   ├── knowledge_base.py       #     24条权威医学法规基准库（四领域各6条）
+│   │   ├── pdf_parser.py           #     PDF分页/表格解析、参考文献剥离与扫描件检测
 │   │   └── ws_server.py            #     WebSocket服务
 │   ├── models/                     #   数据模型（5个Schema文件）
-│   ├── routers/                    #   API路由（9个模块）
-│   │   ├── state.py                #     会话状态管理
-│   │   ├── analyze.py              #     论文解析+领域分类
+│   ├── routers/                    #   API路由（11个模块，33 REST/SSE端点）
+│   │   ├── state.py                #     会话状态管理（SQLite持久化）
+│   │   ├── papers.py               #     自定义论文与历史成果持久化
+│   │   ├── analyze.py              #     论文解析+领域分类+原文溯源(param_citations)
 │   │   ├── scenarios.py            #     临床场景匹配
-│   │   ├── chat.py                 #     医算子对话
-│   │   ├── docs.py                 #     文档生成
-│   │   ├── knowledge.py            #     知识库CRUD+审核
+│   │   ├── chat.py                 #     医算子对话与 /stream SSE 流式调参
+│   │   ├── docs.py                 #     文档生成、/stream SSE 流式与 .docx OpenXML 导出
+│   │   ├── knowledge.py            #     知识库CRUD+RBAC人工审核流程
+│   │   ├── auth.py                 #     HS256 JWT 签发与角色切换 (/api/auth/*)
 │   │   ├── harmony.py              #     鸿蒙设备协同
 │   │   ├── cicd.py                 #     CI/CD流水线
-│   │   └── models.py               #     模型管理
-│   ├── services/                   #   业务服务（10个模块）
-│   │   ├── analyze_service.py      #     论文解析+领域分类
-│   │   ├── chat_service.py         #     对话上下文组装
-│   │   ├── knowledge_service.py    #     知识库+审核流程
-│   │   ├── rag_service.py          #     RAG向量检索+降级
-│   │   ├── model_router_service.py #     模型降级链
+│   │   └── models.py               #     模型管理与密钥状态检测
+│   ├── services/                   #   业务服务（12个模块）
+│   │   ├── analyze_service.py      #     论文解析+领域分类+页码/原句溯源
+│   │   ├── auth_service.py         #     HS256 JWT 鉴权与 RBAC 校验
+│   │   ├── chat_service.py         #     对话上下文组装+<state_patch> Function Calling
+│   │   ├── knowledge_service.py    #     知识库管理+章节层级继承切片+审计日志
+│   │   ├── rag_service.py          #     RAG混合检索+医学术语重排(Medical Reranker)
+│   │   ├── model_router_service.py #     模型降级链（同步 + SSE 流式首包探测降级）
 │   │   ├── devlog_service.py       #     研发日志
 │   │   ├── cicd_service.py         #     CI/CD服务
 │   │   ├── harmony_ws_service.py   #     鸿蒙WebSocket
 │   │   ├── npu_sanitizer_service.py#     NPU脱敏
-│   │   └── doc_generator.py        #     文档模板引擎
+│   │   ├── doc_generator.py        #     统一临床/商业文档模板引擎
+│   │   └── doc_exporter.py         #     纯标准库 ECMA-376 OpenXML .docx 生成器
 │   ├── scripts/
 │   │   └── init_knowledge.py       #     知识库初始化脚本
-│   └── tests/                      #   pytest测试 (27 tests)
-├── src/                            # React 19 + TypeScript 前端
-│   ├── App.tsx                     #   主应用（内置CustomEChart）
-│   ├── App.css                     #   全局样式 + 响应式断点
+│   └── tests/                      #   后端单元与集成测试 (10个模块 · 39 tests)
+├── src/                            # React 19 + TypeScript 6 前端
+│   ├── App.tsx                     #   工作台状态编排与 SSE 流式驱动
 │   ├── main.tsx                    #   入口 (HarmonyOS UA检测)
-│   ├── components/                 #   8个UI组件
-│   │   ├── ModelSelector.tsx       #     模型选择器（5模型切换）
-│   │   ├── KnowledgeManager.tsx    #     知识库管理（拖拽上传）
-│   │   ├── RAGReferencePanel.tsx   #     RAG引用面板（相似度评分）
-│   │   ├── NpuSandboxPanel.tsx     #     NPU沙箱面板
-│   │   ├── HarmonyDrawer.tsx       #     鸿蒙设备抽屉
-│   │   ├── HarmonyWidget.tsx       #     鸿蒙卡片预览
-│   │   ├── CICDStatusPanel.tsx     #     CI/CD状态面板
-│   │   └── PipelineStatusWidget.tsx#     流水线状态组件
+│   ├── components/                 #   18个模块化UI组件
+│   │   ├── TopHeaderBar.tsx        #     顶部导航、5模型Popover与抽屉入口
+│   │   ├── LeftPaperRail.tsx       #     左侧论文队列、上传校验与主CTA
+│   │   ├── CenterWorkspace.tsx     #     三Tab核心工作区与流水线进度
+│   │   ├── ParamsTab.tsx           #     PK/ROC图表、可编辑参数卡与原文溯源抽屉
+│   │   ├── MatchingTab.tsx         #     Top-3场景匹配卡片与五维雷达图
+│   │   ├── DocsTab.tsx             #     双栏文档在线编辑及 .docx/.pdf/.md 导出
+│   │   ├── RightCopilotSheet.tsx   #     医算子流式对话与参数Diff回执
+│   │   ├── KnowledgeManager.tsx    #     RBAC角色切换、24法规统计与重排检索
+│   │   ├── CICDStatusPanel.tsx     #     CI/CD状态与质量报告面板
+│   │   └── ...                     #     OverlayDrawer / HarmonyDrawer / NpuSandboxPanel 等
+│   ├── styles/                     #   Arc × Craft 设计令牌 (tokens.css) 与工作区样式
+│   ├── utils/                      #   5个工具模块（含 docExporters / localChatEngine 等）
 │   ├── hooks/                      #   自定义Hooks（3个）
 │   ├── stores/                     #   Zustand状态管理（3个Store）
-│   └── lib/                        #   工具库（6个模块）
+│   └── lib/                        #   工具库（5个模块：api/constants/types 等）
 ├── docker/                         # 部署配置
 │   ├── Dockerfile.frontend         #   前端Nginx容器
 │   ├── Dockerfile.backend          #   后端Python容器
@@ -297,7 +306,9 @@ RAG服务同样支持降级：ChromaDB不可用时自动退回关键字检索。
 .venv\Scripts\python.exe -m pytest backend/tests/ -v
 # macOS/Linux
 .venv/bin/python -m pytest backend/tests/ -v
-# 27 tests, all passed
+# 39 tests (across 10 modules), all passed
+# 前端静态检查（0 warnings, 0 errors）
+npm run lint
 ```
 
 ---
@@ -307,11 +318,12 @@ RAG服务同样支持降级：ChromaDB不可用时自动退回关键字检索。
 | 层 | 技术 |
 |----|------|
 | 前端 | React 19, TypeScript 6, Vite 8, Zustand 5, ECharts 6, Framer Motion |
-| 后端 | FastAPI, Python 3.12, ChromaDB, sentence-transformers |
-| 部署 | Docker, Nginx, CodeArts Pipeline, CCE |
-| 知识库 | ChromaDB (向量) + 硬编码字典 (降级) |
+| 后端 | FastAPI (SSE 流式), Python 3.12, pypdf (分页/表格/去参考文献), OpenXML `.docx` 生成 |
+| 持久化与鉴权 | SQLite WAL (8 张表), HS256 JWT + RBAC 双角色权限控制 |
+| 部署 | Docker Compose (命名数据卷), Nginx (SSE 反代), CodeArts Pipeline, CCE |
+| 知识库 | ChromaDB + SQLite TF-IDF 混合检索, 24 条权威法规, 层级切片 + 医学术语重排 |
 | 鸿蒙适配 | WebSocket模拟星闪, NPU正则脱敏, UA检测 |
-| LLM | 盘古/DeepSeek/OpenAI/GLM-5/Gemini 多模型降级链 |
+| LLM | 盘古/DeepSeek/OpenAI/GLM-5/Gemini 五模型降级链 + `<state_patch>` Function Calling |
 
 ---
 

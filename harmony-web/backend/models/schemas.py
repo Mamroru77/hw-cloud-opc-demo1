@@ -38,15 +38,19 @@ class SessionState(BaseModel):
 
 class AnalyzePaperRequest(BaseModel):
     title: str
-    content: str
+    content: str = ""
     api_key: Optional[str] = None
     provider: Optional[str] = None
+    file_base64: Optional[str] = None
+    filename: Optional[str] = None
+    paper_id: Optional[str] = None
 
 
 class GenerateDocsRequest(BaseModel):
     api_key: Optional[str] = None
     provider: Optional[str] = None
     state: SessionState
+    paper_id: Optional[str] = None
 
 
 class ChatMessage(BaseModel):
@@ -57,3 +61,25 @@ class ChatMessage(BaseModel):
     clinical_doc: Optional[str] = None
     bp_doc: Optional[str] = None
     history: List[Dict[str, str]] = []
+
+
+class KnowledgeUploadJsonRequest(BaseModel):
+    filename: str
+    domain: str
+    file_base64: Optional[str] = None
+    text_content: Optional[str] = None
+    auto_approve: bool = False
+    operator: str = "web_user"
+
+
+class ScenarioCreateRequest(BaseModel):
+    id: str
+    domain: str
+    name: str
+    manufacturer: str
+    national_installs: int = 0
+    channels: List[str] = []
+    suitability_departments: List[str] = []
+    excitation_compatible: Optional[List[float]] = None
+    base_score: int = 90
+    description: str = ""

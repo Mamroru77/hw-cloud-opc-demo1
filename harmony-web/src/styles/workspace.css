@@ -951,6 +951,110 @@
   font-size: 14.5px;
 }
 
+.ym-metric-card-wrap {
+  background: var(--ym-bg-tint);
+  border-radius: var(--ym-radius-lg);
+  border: 1px solid transparent;
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ym-metric-card-wrap:hover {
+  background: #F0F4FA;
+  border-color: rgba(15, 23, 42, 0.1);
+}
+
+.ym-metric-card-wrap.active-cite {
+  border-color: var(--ym-border-accent);
+  background: var(--ym-bg-sheet);
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.08);
+}
+
+.ym-metric-card-wrap .ym-metric-tile {
+  background: transparent;
+  border: none;
+  width: 100%;
+  padding-bottom: 8px;
+}
+
+.ym-metric-card-wrap .ym-metric-tile:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+.ym-metric-cite-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px 10px;
+  gap: 6px;
+}
+
+.ym-metric-cite-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--ym-radius-full);
+  font-size: 11px;
+  font-weight: 550;
+  color: var(--ym-text-accent);
+  background: var(--ym-bg-accent-soft);
+  transition: background-color 0.15s ease;
+}
+
+.ym-metric-cite-pill:hover {
+  background: rgba(37, 99, 235, 0.15);
+}
+
+.ym-metric-cite-pill.rag {
+  color: var(--ym-text-secondary);
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.ym-cite-drawer {
+  background: var(--ym-bg-sheet);
+  border: 1px solid var(--ym-border-accent);
+  border-radius: var(--ym-radius-lg);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.ym-cite-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--ym-text-primary);
+}
+
+.ym-cite-source-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--ym-radius-full);
+  background: var(--ym-bg-accent-soft);
+  color: var(--ym-text-accent);
+}
+
+.ym-cite-quote {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ym-text-secondary);
+  background: var(--ym-bg-tint);
+  padding: 8px 10px;
+  border-left: 3px solid var(--ym-text-accent);
+  border-radius: 0 6px 6px 0;
+  word-break: break-word;
+}
+
 .ym-safety-panel {
   background: var(--ym-bg-tint);
   border-radius: 11px;
@@ -1182,10 +1286,11 @@
 }
 
 .ym-doc-head {
-  padding: 13px 16px;
+  padding: 12px 14px;
   background: var(--ym-bg-sheet);
   border-bottom: 1px solid var(--ym-border-subtle);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -1202,8 +1307,23 @@
 
 .ym-doc-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+}
+
+.ym-doc-editor {
+  width: 100%;
+  min-height: 460px;
+  border: 1px solid var(--ym-border-default);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: var(--ym-font-mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--ym-text-primary);
+  background: var(--ym-bg-sheet);
+  resize: vertical;
 }
 
 .ym-doc-body {

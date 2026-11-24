@@ -1,9 +1,33 @@
 import React, { useState } from 'react';
-import { Download, FileText, Briefcase, Copy, Check } from 'lucide-react';
+import {
+  Download,
+  FileText,
+  Briefcase,
+  Copy,
+  Check,
+  RefreshCw,
+  Sparkles,
+  AlertTriangle,
+  Edit3,
+  Eye,
+  Printer,
+  FileSpreadsheet,
+} from 'lucide-react';
+import { exportDocAsDocx, exportDocAsPdf } from '../utils/docExporters';
 
 interface DocsTabProps {
   clinicalDoc: string;
   bpDoc: string;
+  paperTitle?: string;
+  domain?: string;
+  docSource?: 'llm' | 'template';
+  docProviderUsed?: string | null;
+  isDocsStale?: boolean;
+  isRegeneratingDocs?: boolean;
+  canUseLLM?: boolean;
+  onRegenerateDocs?: () => void;
+  onUpdateClinicalDoc?: (next: string) => void;
+  onUpdateBpDoc?: (next: string) => void;
   onDownload: (filename: string, content: string) => void;
 }
 
@@ -71,8 +95,27 @@ const MarkdownView: React.FC<{ content: string }> = ({ content }) => {
   return <div className="ym-md">{elements}</div>;
 };
 
-export const DocsTab: React.FC<DocsTabProps> = ({ clinicalDoc, bpDoc, onDownload }) => {
+export const DocsTab: React.FC<DocsTabProps> = ({
+  clinicalDoc,
+  bpDoc,
+  paperTitle = '转化医学项目',
+  domain = 'devices',
+  docSource = 'template',
+  docProviderUsed,
+  isDocsStale = false,
+  isRegeneratingDocs = false,
+  canUseLLM = false,
+  onRegenerateDocs,
+  onUpdateClinicalDoc,
+  onUpdateBpDoc,
+  onDownload,
+}) => {
   const [copiedKey, setCopiedKey] = useState<'clinical' | 'bp' | null>(null);
+  const [editingDoc, setEditingDoc] = useState<{ clinical: boolean; bp: boolean }>({
+    clinical: false,
+    bp: false,
+  });
+  const [exportingKey, setExportingKey] = useState<'clinical' | 'bp' | null>(null);
 
   const handleCopy = async (key: 'clinical' | 'bp', text: string) => {
     try {
@@ -84,73 +127,165 @@ export const DocsTab: React.FC<DocsTabProps> = ({ clinicalDoc, bpDoc, onDownload
     }
   };
 
-  return (
-    <div className="ym-docs-split">
-      {/* Clinical Trial Protocol */}
-      <article className="ym-doc-card">
-        <div className="ym-doc-head">
-          <div className="ym-doc-title">
-            <FileText size={15} style={{ color: 'var(--ym-text-accent)' }} />
-            <span>临床试验设计方案草案</span>
-          </div>
-          <div className="ym-doc-actions">
-            <button
-              type="button"
-              className="ym-btn-secondary ym-btn-sm"
-              onClick={() => handleCopy('clinical', clinicalDoc)}
-              aria-label="复制临床试验方案"
-            >
-              {copiedKey === 'clinical' ? <Check size={13} /> : <Copy size={13} />}
-              <span>{copiedKey === 'clinical' ? '已复制' : '复制'}</span>
-            </button>
-            <button
-              type="button"
-              className="ym-btn-primary ym-btn-sm"
-              style={{ flex: 'none' }}
-              onClick={() => onDownload('临床试验设计方案草案.md', clinicalDoc)}
-            >
-              <Download size={13} />
-              <span>导出 .md</span>
-            </button>
-          </div>
-        </div>
-        <div className="ym-doc-body">
-          <MarkdownView content={clinicalDoc} />
-        </div>
-      </article>
+  const handleExportDocx = async (key: 'clinical' | 'bp', baseName: string, content: string) => {
+    setExportingKey(key);
+    try {
+      await exportDocAsDocx(`${baseName}.docx`, `${paperTitle} - ${baseName}`, content, domain);
+    } finally {
+      setExportingKey(null);
+    }
+  };
 
-      {/* Business Plan */}
-      <article className="ym-doc-card">
-        <div className="ym-doc-head">
-          <div className="ym-doc-title">
-            <Briefcase size={15} style={{ color: 'var(--ym-text-success)' }} />
-            <span>商业融资计划书 (BP)</span>
-          </div>
-          <div className="ym-doc-actions">
-            <button
-              type="button"
-              className="ym-btn-secondary ym-btn-sm"
-              onClick={() => handleCopy('bp', bpDoc)}
-              aria-label="复制商业融资计划书"
-            >
-              {copiedKey === 'bp' ? <Check size={13} /> : <Copy size={13} />}
-              <span>{copiedKey === 'bp' ? '已复制' : '复制'}</span>
-            </button>
-            <button
-              type="button"
-              className="ym-btn-primary ym-btn-sm"
-              style={{ flex: 'none' }}
-              onClick={() => onDownload('商业融资计划书.md', bpDoc)}
-            >
-              <Download size={13} />
-              <span>导出 .md</span>
-            </button>
-          </div>
+  const docCards = [
+    {
+      key: 'clinical' as const,
+      title: '临床试验设计方案草案',
+      baseName: '临床试验设计方案草案',
+      icon: <FileText size={15} style={{ color: 'var(--ym-text-accent)' }} />,
+      content: clinicalDoc,
+      isEditing: editingDoc.clinical,
+      onToggleEdit: () => setEditingDoc((prev) => ({ ...prev, clinical: !prev.clinical })),
+      onChangeContent: onUpdateClinicalDoc,
+    },
+    {
+      key: 'bp' as const,
+      title: '商业融资计划书 (BP)',
+      baseName: '商业融资计划书',
+      icon: <Briefcase size={15} style={{ color: 'var(--ym-text-success)' }} />,
+      content: bpDoc,
+      isEditing: editingDoc.bp,
+      onToggleEdit: () => setEditingDoc((prev) => ({ ...prev, bp: !prev.bp })),
+      onChangeContent: onUpdateBpDoc,
+    },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Document Source & Sync Banner */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          padding: '9px 12px',
+          borderRadius: 10,
+          background: isDocsStale ? 'var(--ym-bg-warning-soft)' : 'var(--ym-bg-sheet)',
+          border: `1px solid ${isDocsStale ? 'var(--ym-text-warning)' : 'var(--ym-border-subtle)'}`,
+          fontSize: 12,
+        }}
+      >
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          {isDocsStale ? (
+            <AlertTriangle size={14} style={{ color: 'var(--ym-text-warning)' }} />
+          ) : (
+            <Sparkles size={14} style={{ color: 'var(--ym-text-accent)' }} />
+          )}
+          <span style={{ color: 'var(--ym-text-primary)', fontWeight: 550 }}>
+            {docSource === 'llm'
+              ? `文档来源：大模型实时生成${docProviderUsed ? ` (${docProviderUsed})` : ''}`
+              : '文档来源：结构化规则模板（配置 API Key 或服务端 .env 后可由大模型生成）'}
+          </span>
+          {isDocsStale && (
+            <span style={{ color: 'var(--ym-text-warning)', fontWeight: 600 }}>
+              · 参数已调整，已保留当前大模型文档避免覆盖，可点击右侧重新生成同步最新参数
+            </span>
+          )}
         </div>
-        <div className="ym-doc-body">
-          <MarkdownView content={bpDoc} />
-        </div>
-      </article>
+
+        {onRegenerateDocs && (isDocsStale || canUseLLM) && (
+          <button
+            type="button"
+            className="ym-btn-primary ym-btn-sm"
+            style={{ flex: 'none' }}
+            disabled={isRegeneratingDocs}
+            onClick={onRegenerateDocs}
+          >
+            <RefreshCw size={12} className={isRegeneratingDocs ? 'ym-spin' : ''} />
+            <span>
+              {isRegeneratingDocs
+                ? '大模型生成中...'
+                : isDocsStale
+                  ? '同步最新参数并重新生成'
+                  : '用大模型重新生成'}
+            </span>
+          </button>
+        )}
+      </div>
+
+      <div className="ym-docs-split">
+        {docCards.map((card) => (
+          <article key={card.key} className="ym-doc-card">
+            <div className="ym-doc-head">
+              <div className="ym-doc-title">
+                {card.icon}
+                <span>{card.title}</span>
+              </div>
+              <div className="ym-doc-actions">
+                <button
+                  type="button"
+                  className="ym-btn-secondary ym-btn-sm"
+                  onClick={card.onToggleEdit}
+                  aria-label={card.isEditing ? `完成编辑${card.title}` : `在线编辑${card.title}`}
+                >
+                  {card.isEditing ? <Eye size={13} /> : <Edit3 size={13} />}
+                  <span>{card.isEditing ? '预览' : '编辑'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="ym-btn-secondary ym-btn-sm"
+                  onClick={() => handleCopy(card.key, card.content)}
+                  aria-label={`复制${card.title}`}
+                >
+                  {copiedKey === card.key ? <Check size={13} /> : <Copy size={13} />}
+                  <span>{copiedKey === card.key ? '已复制' : '复制'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="ym-btn-secondary ym-btn-sm"
+                  disabled={exportingKey === card.key}
+                  onClick={() => handleExportDocx(card.key, card.baseName, card.content)}
+                  aria-label={`导出 ${card.title} 为 Word (.docx)`}
+                >
+                  <FileSpreadsheet size={13} />
+                  <span>{exportingKey === card.key ? '导出中...' : '.docx'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="ym-btn-secondary ym-btn-sm"
+                  onClick={() => exportDocAsPdf(`${paperTitle} - ${card.baseName}`, card.content)}
+                  aria-label={`导出 ${card.title} 为 PDF`}
+                >
+                  <Printer size={13} />
+                  <span>.pdf</span>
+                </button>
+                <button
+                  type="button"
+                  className="ym-btn-primary ym-btn-sm"
+                  style={{ flex: 'none' }}
+                  onClick={() => onDownload(`${card.baseName}.md`, card.content)}
+                >
+                  <Download size={13} />
+                  <span>.md</span>
+                </button>
+              </div>
+            </div>
+            <div className="ym-doc-body">
+              {card.isEditing ? (
+                <textarea
+                  className="ym-doc-editor"
+                  value={card.content}
+                  aria-label={`在线编辑${card.title} Markdown 正文`}
+                  onChange={(e) => card.onChangeContent?.(e.target.value)}
+                />
+              ) : (
+                <MarkdownView content={card.content} />
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
     </div>
   );
 };

@@ -1,5 +1,8 @@
 import os
-import chromadb
+try:
+    import chromadb
+except ImportError:
+    chromadb = None
 
 
 class ChromaClient:
@@ -15,10 +18,17 @@ class ChromaClient:
         if self._initialized:
             return
         if persist_directory is None:
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            project_root = os.path.dirname(base_dir)
-            persist_directory = os.path.join(project_root, "chroma_data")
+            env_dir = os.getenv("CHROMA_PERSIST_DIR", "").strip()
+            if env_dir:
+                persist_directory = env_dir
+            else:
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                project_root = os.path.dirname(base_dir)
+                persist_directory = os.path.join(project_root, "chroma_data")
+        os.makedirs(persist_directory, exist_ok=True)
         self._persist_directory = persist_directory
+        if chromadb is None:
+            raise RuntimeError("ChromaDB 初始化失败: 未安装 chromadb")
         try:
             self._client = chromadb.PersistentClient(path=persist_directory)
         except Exception as e:

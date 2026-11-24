@@ -1,8 +1,22 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Upload, Search, CheckCircle2, AlertTriangle, X, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Upload,
+  Search,
+  CheckCircle2,
+  AlertTriangle,
+  X,
+  Loader2,
+  Check,
+  Ban,
+  RefreshCw,
+  History,
+  ShieldCheck,
+  UserCheck,
+} from 'lucide-react';
 import { useKnowledgeStore } from '../stores/knowledgeStore';
 import { useVectorSearch } from '../hooks/useVectorSearch';
 import { FRONTEND_KNOWLEDGE_BASE } from '../lib/constants';
+import { getActorRole, getJwtToken, switchActorRole, type ActorRole } from '../lib/api';
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.md', '.txt'];
 const DOMAIN_OPTIONS = [
@@ -20,25 +34,59 @@ const FALLBACK_STATS = {
     ai: FRONTEND_KNOWLEDGE_BASE.ai.length,
     surgical: FRONTEND_KNOWLEDGE_BASE.surgical.length,
   },
+  pending_count: 0,
+  engine: 'offline-fallback',
 };
 
 function KnowledgeManager() {
-  const { stats, isLoading, error, uploadDocument, fetchStats, clearError } = useKnowledgeStore();
+  const {
+    stats,
+    pendingEntries,
+    auditLogs,
+    isLoading,
+    error,
+    uploadDocument,
+    fetchStats,
+    fetchPending,
+    approveEntry,
+    rejectEntry,
+    fetchAuditLogs,
+    syncKnowledgeLake,
+    clearError,
+  } = useKnowledgeStore();
   const { results: searchResults, isLoading: isSearching, search, coverageWarning } = useVectorSearch();
 
   const [selectedDomain, setSelectedDomain] = useState('devices');
-  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [actorRole, setActorRoleState] = useState<ActorRole>(() => getActorRole());
+  const [hasJwtToken, setHasJwtToken] = useState<boolean>(() => Boolean(getJwtToken()));
+  const [autoApprove, setAutoApprove] = useState(() => getActorRole() === 'reviewer');
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+  const [lakeNotice, setLakeNotice] = useState<string | null>(null);
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchDomain, setSearchDomain] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [localFallbackResults, setLocalFallbackResults] = useState<
-    Array<{ source: string; title: string; content: string; similarity_score?: number }>
+    Array<{ source: string; title: string; content: string; similarity_score?: number; matched_terms?: string[] }>
   >([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+    fetchPending();
+    fetchAuditLogs();
+    if (!getJwtToken()) {
+      switchActorRole(getActorRole()).then((res) => setHasJwtToken(res.hasJwt));
+    }
+  }, [fetchStats, fetchPending, fetchAuditLogs]);
+
+  const handleRoleSwitch = async (nextRole: ActorRole) => {
+    clearError();
+    const res = await switchActorRole(nextRole);
+    setActorRoleState(res.role);
+    setHasJwtToken(res.hasJwt);
+    setAutoApprove(res.role === 'reviewer');
+  };
 
   const effectiveStats = stats && stats.total > 0 ? stats : FALLBACK_STATS;
 
@@ -51,14 +99,34 @@ function KnowledgeManager() {
         });
         return;
       }
-      setUploadSuccess(null);
-      const chunkCount = await uploadDocument(file, selectedDomain);
-      if (chunkCount !== null) {
-        setUploadSuccess(`成功入库 ${chunkCount} 条法规知识块`);
+      setUploadNotice(null);
+      const result = await uploadDocument(file, selectedDomain, autoApprove);
+      if (result) {
+        setUploadNotice(result.message);
       }
     },
-    [uploadDocument, selectedDomain]
+    [uploadDocument, selectedDomain, autoApprove]
   );
+
+  const handleApprove = async (entryId: string) => {
+    setUploadNotice(null);
+    const msg = await approveEntry(entryId);
+    if (msg) setUploadNotice(msg);
+  };
+
+  const handleReject = async (entryId: string) => {
+    setUploadNotice(null);
+    const msg = await rejectEntry(entryId, '内容不符合临床转化知识入库标准');
+    if (msg) setUploadNotice(msg);
+  };
+
+  const handleSyncLake = async () => {
+    setLakeNotice(null);
+    const res = await syncKnowledgeLake();
+    if (res) {
+      setLakeNotice(res.message);
+    }
+  };
 
   const handleSearch = useCallback(async () => {
     const q = searchQuery.trim();
@@ -66,7 +134,7 @@ function KnowledgeManager() {
     setLocalFallbackResults([]);
     await search(q, searchDomain || undefined, 5);
 
-    // Local fallback search if backend offline
+    // Local fallback search only if backend stats are unavailable
     if (!stats) {
       const pool = searchDomain
         ? FRONTEND_KNOWLEDGE_BASE[searchDomain] || []
@@ -80,7 +148,9 @@ function KnowledgeManager() {
             item.source.toLowerCase().includes(lower)
         )
         .map((item) => ({ ...item, similarity_score: 0.86 }));
-      setLocalFallbackResults(matched.length > 0 ? matched : pool.slice(0, 2).map((i) => ({ ...i, similarity_score: 0.72 })));
+      setLocalFallbackResults(
+        matched.length > 0 ? matched : pool.slice(0, 2).map((i) => ({ ...i, similarity_score: 0.72 }))
+      );
     }
   }, [search, searchQuery, searchDomain, stats]);
 
@@ -88,9 +158,60 @@ function KnowledgeManager() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* RBAC Role & JWT Auth Card */}
+      <section className="ym-drawer-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span className="ym-sp-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ShieldCheck size={14} style={{ color: 'var(--ym-text-accent)' }} />
+            RBAC 权限身份（JWT 鉴权）
+          </span>
+          <span className="ym-rag-pill" style={{ fontSize: 11 }}>
+            <UserCheck size={11} />
+            {actorRole === 'reviewer' ? '医学合规审评官 (PI)' : '临床转化研究员'}
+            {hasJwtToken ? ' · JWT 已签发' : ''}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className={actorRole === 'researcher' ? 'ym-btn-primary ym-btn-sm' : 'ym-btn-secondary ym-btn-sm'}
+            style={{ flex: 1 }}
+            onClick={() => handleRoleSwitch('researcher')}
+          >
+            临床转化研究员 (提交待审)
+          </button>
+          <button
+            type="button"
+            className={actorRole === 'reviewer' ? 'ym-btn-primary ym-btn-sm' : 'ym-btn-secondary ym-btn-sm'}
+            style={{ flex: 1 }}
+            onClick={() => handleRoleSwitch('reviewer')}
+          >
+            医学合规审评官 PI (审批入库)
+          </button>
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--ym-text-muted)', lineHeight: 1.45 }}>
+          {actorRole === 'researcher'
+            ? '当前为研究员身份：仅可上传文献至待审队列，执行审批操作将被后端 RBAC 鉴权拦截 (HTTP 403)。'
+            : '当前为审评官 (PI) 身份：拥有待审文献审批入库、驳回及自动审核权限，操作记入实名审计日志。'}
+        </div>
+      </section>
+
       {/* Upload Card */}
       <section className="ym-drawer-card">
-        <div className="ym-sp-title">入库临床指南与法规文献</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="ym-sp-title">入库临床指南与法规文献</div>
+          <button
+            type="button"
+            className="ym-btn-secondary ym-btn-sm"
+            disabled={isLoading}
+            onClick={handleSyncLake}
+            title="从华为云知识湖增量同步（需配置 KNOWLEDGE_LAKE_AK/SK）"
+          >
+            <RefreshCw size={12} className={isLoading ? 'ym-spin' : ''} />
+            <span>同步知识湖</span>
+          </button>
+        </div>
+
         <button
           type="button"
           className={`ym-drop-zone ${isDragging ? 'dragging' : ''}`}
@@ -112,7 +233,7 @@ function KnowledgeManager() {
           <span style={{ fontWeight: 500, color: 'var(--ym-text-primary)' }}>
             拖拽或点击上传 PDF / MD / TXT 法规文件
           </span>
-          <span style={{ fontSize: 11.5 }}>自动切片并写入对应医学细分域向量库</span>
+          <span style={{ fontSize: 11.5 }}>真实解析文本并持久化写入对应医学细分域索引库</span>
         </button>
         <input
           ref={fileInputRef}
@@ -127,7 +248,10 @@ function KnowledgeManager() {
         />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <label htmlFor="ym-kb-domain" style={{ fontSize: 12.5, color: 'var(--ym-text-secondary)', whiteSpace: 'nowrap', fontWeight: 500 }}>
+          <label
+            htmlFor="ym-kb-domain"
+            style={{ fontSize: 12.5, color: 'var(--ym-text-secondary)', whiteSpace: 'nowrap', fontWeight: 500 }}
+          >
             目标入库域
           </label>
           <select
@@ -145,17 +269,46 @@ function KnowledgeManager() {
           </select>
         </div>
 
+        <label
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 12,
+            color: actorRole === 'researcher' ? 'var(--ym-text-muted)' : 'var(--ym-text-secondary)',
+            cursor: actorRole === 'researcher' ? 'not-allowed' : 'pointer',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={actorRole === 'researcher' ? false : autoApprove}
+            disabled={actorRole === 'researcher'}
+            onChange={(e) => setAutoApprove(e.target.checked)}
+          />
+          <span>
+            {actorRole === 'researcher'
+              ? '研究员身份禁止自审，上传文档将自动进入下方 PI 待审队列'
+              : '上传后自动审核并立即写入检索索引（取消勾选则进入下方人工待审队列）'}
+          </span>
+        </label>
+
         {isLoading && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ym-text-accent)' }}>
             <Loader2 size={13} className="ym-spin" />
-            正在切片并建立向量索引...
+            正在解析文档并更新索引...
           </div>
         )}
 
-        {uploadSuccess && (
+        {uploadNotice && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ym-text-success)', fontWeight: 600 }}>
             <CheckCircle2 size={14} />
-            {uploadSuccess}
+            {uploadNotice}
+          </div>
+        )}
+
+        {lakeNotice && (
+          <div style={{ fontSize: 12, color: 'var(--ym-text-secondary)', background: 'var(--ym-bg-sheet)', padding: '6px 10px', borderRadius: 8 }}>
+            {lakeNotice}
           </div>
         )}
 
@@ -175,11 +328,77 @@ function KnowledgeManager() {
         )}
       </section>
 
+      {/* Pending Review Queue */}
+      {pendingEntries.length > 0 && (
+        <section className="ym-drawer-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="ym-sp-title">待审核入库队列</span>
+            <span className="ym-rag-pill" style={{ background: 'var(--ym-bg-warning-soft)', color: 'var(--ym-text-warning)' }}>
+              {pendingEntries.length} 条待审
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {pendingEntries.map((entry) => (
+              <div
+                key={entry.id}
+                style={{
+                  padding: '10px 12px',
+                  background: 'var(--ym-bg-sheet)',
+                  border: '1px solid var(--ym-border-subtle)',
+                  borderRadius: 10,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 650, color: 'var(--ym-text-primary)' }}>
+                    {entry.filename}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--ym-text-muted)' }}>
+                    {DOMAIN_OPTIONS.find((d) => d.value === entry.domain)?.label || entry.domain}
+                    {entry.char_count ? ` · ${entry.char_count} 字` : ''}
+                  </span>
+                </div>
+                {entry.preview && (
+                  <div style={{ fontSize: 11.5, color: 'var(--ym-text-secondary)', lineHeight: 1.45 }}>
+                    {entry.preview}...
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                  <button
+                    type="button"
+                    className="ym-btn-primary ym-btn-sm"
+                    disabled={isLoading}
+                    onClick={() => handleApprove(entry.id)}
+                  >
+                    <Check size={12} />
+                    <span>通过并入库</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="ym-btn-secondary ym-btn-sm"
+                    disabled={isLoading}
+                    onClick={() => handleReject(entry.id)}
+                  >
+                    <Ban size={12} />
+                    <span>拒绝</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Stats Card */}
       <section className="ym-drawer-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span className="ym-sp-title">知识库分域覆盖统计</span>
-          <span className="ym-rag-pill">共 {effectiveStats.total} 条法规块</span>
+          <span className="ym-rag-pill">
+            共 {effectiveStats.total} 条法规块
+            {effectiveStats.engine ? ` · ${effectiveStats.engine}` : ''}
+          </span>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -332,9 +551,82 @@ function KnowledgeManager() {
                   <div style={{ fontSize: 12, color: 'var(--ym-text-secondary)', lineHeight: 1.55 }}>
                     {r.content}
                   </div>
+                  {'matched_terms' in r && Array.isArray(r.matched_terms) && r.matched_terms.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                      {r.matched_terms.map((term, ti) => (
+                        <span
+                          key={ti}
+                          style={{
+                            fontSize: 10.5,
+                            padding: '1px 6px',
+                            borderRadius: 999,
+                            background: 'var(--ym-bg-accent-soft)',
+                            color: 'var(--ym-text-accent)',
+                            fontWeight: 550,
+                          }}
+                        >
+                          {term}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </article>
               );
             })}
+          </div>
+        )}
+      </section>
+
+      {/* Audit Logs */}
+      <section className="ym-drawer-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span className="ym-sp-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <History size={13} />
+            入库与审批审计日志 ({auditLogs.length})
+          </span>
+          <button
+            type="button"
+            className="ym-btn-secondary ym-btn-sm"
+            onClick={() => {
+              const next = !showAuditLogs;
+              setShowAuditLogs(next);
+              if (next) fetchAuditLogs();
+            }}
+          >
+            {showAuditLogs ? '收起' : '展开'}
+          </button>
+        </div>
+
+        {showAuditLogs && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
+            {auditLogs.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--ym-text-muted)' }}>暂无审计记录</div>
+            ) : (
+              auditLogs.map((log) => (
+                <div
+                  key={log.id}
+                  style={{
+                    fontSize: 11.5,
+                    padding: '6px 9px',
+                    background: 'var(--ym-bg-sheet)',
+                    borderRadius: 8,
+                    border: '1px solid var(--ym-border-subtle)',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--ym-text-primary)', fontWeight: 600 }}>
+                    <span>
+                      [{log.action}] {log.operator_id}
+                    </span>
+                    <span style={{ color: 'var(--ym-text-muted)', fontWeight: 400 }}>
+                      {new Date(log.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <div style={{ color: 'var(--ym-text-secondary)', marginTop: 2 }}>
+                    {log.after_content || log.target_id}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
       </section>

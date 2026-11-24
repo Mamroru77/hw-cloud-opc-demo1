@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ConnectionState, HarmonyDevice } from '../lib/wsNearLinkSim';
+import type { ConnectionState, HarmonyDevice } from '../lib/wsNearLinkSim';
 
 interface HarmonyStoreState {
   connectionState: ConnectionState;

@@ -1,3 +1,4 @@
+import os
 import time
 import httpx
 
@@ -8,7 +9,7 @@ from backend.models.llm_models import LLMResponse, LLMException
 class PanguAdapter(BaseLLMAdapter):
     provider_id = "pangu"
     display_name = "华为云盘古"
-    api_endpoint = "https://infer-modelarts.cn-north-4.myhuawecloud.com/v1/infers"
+    api_endpoint = "https://infer-modelarts.cn-north-4.myhuaweicloud.com/v1/infers"
     model_id = "pangu"
     is_proxy = False
     fallback_provider_id = "deepseek"
@@ -18,6 +19,20 @@ class PanguAdapter(BaseLLMAdapter):
             return False
         return api_key.startswith("hw-") or api_key.startswith("pangu-")
 
+    def _resolve_endpoint_and_headers(self, api_key: str) -> tuple[str, dict]:
+        custom_endpoint = os.getenv("PANGU_API_ENDPOINT", "").strip()
+        if custom_endpoint:
+            return custom_endpoint, self._build_headers(api_key)
+        if api_key.startswith("hw-"):
+            return f"{self.api_endpoint}/pangu", self._build_headers(api_key)
+        if api_key.startswith("pangu-"):
+            return "https://modelarts.cn-north-4.myhuaweicloud.com/v1/infers/pangu", self._build_headers(api_key)
+        raise LLMException(
+            provider_id=self.provider_id,
+            status_code=401,
+            message="盘古模型需要 hw- 或 pangu- 前缀的API Key",
+        )
+
     async def chat(
         self,
         api_key: str,
@@ -26,20 +41,7 @@ class PanguAdapter(BaseLLMAdapter):
         temperature: float = 0.3,
     ) -> LLMResponse:
         start = time.monotonic()
-
-        if api_key.startswith("hw-"):
-            endpoint = f"{self.api_endpoint}/pangu"
-            headers = self._build_headers(api_key)
-        elif api_key.startswith("pangu-"):
-            endpoint = "https://modelarts.cn-north-4.myhuawecloud.com/v1/infers/pangu"
-            headers = self._build_headers(api_key)
-        else:
-            raise LLMException(
-                provider_id=self.provider_id,
-                status_code=401,
-                message="盘古模型需要 hw- 或 pangu- 前缀的API Key",
-            )
-
+        endpoint, headers = self._resolve_endpoint_and_headers(api_key)
         payload = self._build_payload(system_prompt, messages, temperature)
 
         try:

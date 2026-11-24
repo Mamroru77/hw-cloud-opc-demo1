@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Share2, Smartphone, Cpu, Wifi, WifiOff } from 'lucide-react';
-import { AppParams, RAGReference, PresetPaper, CustomPaper } from '../lib/types';
+import { Share2, Cpu, Wifi, WifiOff } from 'lucide-react';
+import { AppParams, RAGReference, CustomPaper } from '../lib/types';
 import { PRESET_PAPERS } from '../lib/constants';
-import { WebSocketNearLinkSim, HarmonyDevice, ConnectionState } from '../lib/wsNearLinkSim';
-import { npuSanitize, SanitizeResult } from '../lib/npuSanitizer';
+import { WebSocketNearLinkSim, HarmonyDevice } from '../lib/wsNearLinkSim';
+import { npuSanitize } from '../lib/npuSanitizer';
 import { useHarmonyStore } from '../stores/harmonyStore';
 import NpuSandboxPanel from './NpuSandboxPanel';
 import HarmonyWidget from './HarmonyWidget';
@@ -33,15 +33,14 @@ function HarmonyDrawer({
   customPapers,
   state,
   ragReferences,
-  harmonySynced,
-  isSyncingHarmony,
+  harmonySynced: _harmonySynced,
+  isSyncingHarmony: _isSyncingHarmony,
   onSyncHarmony,
   onDisconnectHarmony
 }: HarmonyDrawerProps) {
   const [connectionPhase, setConnectionPhase] = useState<ConnectionPhase>('idle');
   const [selectedDevice, setSelectedDevice] = useState<HarmonyDevice | null>(null);
   const [phaseLogs, setPhaseLogs] = useState<string[]>([]);
-  const [sanitizeResult, setSanitizeResult] = useState<SanitizeResult | null>(null);
 
   const harmonyStore = useHarmonyStore();
 
@@ -97,7 +96,6 @@ function HarmonyDrawer({
       });
 
       const result = npuSanitize(dataToSanitize);
-      setSanitizeResult(result);
       harmonyStore.setSanitizeResult(result);
       addLog(`脱敏完成: ${result.fields_sanitized} 字段已替换`);
 
@@ -122,7 +120,6 @@ function HarmonyDrawer({
     setConnectionPhase('idle');
     setSelectedDevice(null);
     setPhaseLogs([]);
-    setSanitizeResult(null);
     harmonyStore.reset();
     onDisconnectHarmony();
   }, [selectedDevice, onDisconnectHarmony, harmonyStore]);
@@ -309,7 +306,6 @@ function HarmonyDrawer({
             <NpuSandboxPanel
               selectedPaperId={selectedPaperId}
               onSanitizeComplete={(result) => {
-                setSanitizeResult(result);
                 harmonyStore.setSanitizeResult(result);
               }}
             />

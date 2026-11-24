@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { BACKEND_URL } from '../lib/constants';
 
 interface PipelineStatusWidgetProps {
   backendUrl?: string;
 }
 
-const PipelineStatusWidget: React.FC<PipelineStatusWidgetProps> = ({ backendUrl = 'http://127.0.0.1:8000/api/cicd' }) => {
+const PipelineStatusWidget: React.FC<PipelineStatusWidgetProps> = ({ backendUrl = `${BACKEND_URL}/cicd` }) => {
   const [status, setStatus] = useState<string | null>(null);
   const [pipelineName, setPipelineName] = useState<string>('');
 

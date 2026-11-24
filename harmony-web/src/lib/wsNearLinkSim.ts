@@ -1,3 +1,5 @@
+import { BACKEND_URL, getBackendWsUrl } from './constants';
+
 export type ConnectionState = 'discovered' | 'pairing' | 'connected' | 'syncing' | 'disconnected';
 
 export interface HarmonyDevice {
@@ -23,10 +25,8 @@ export interface INearLinkAdapter {
   getState(deviceId: string): ConnectionState;
 }
 
-const WS_URL = 'ws://localhost:8765/harmony';
 const HEARTBEAT_INTERVAL = 30000;
 const HEARTBEAT_TIMEOUT = 60000;
-const MAX_RECONNECT_ATTEMPTS = 3;
 const CACHE_KEY = 'harmony_reconnect_buffer';
 const MAX_CACHE_SIZE = 100;
 
@@ -78,18 +78,19 @@ export class WebSocketNearLinkSim implements INearLinkAdapter {
   private dataCallbacks: ((data: object) => void)[] = [];
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private heartbeatTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
-  private reconnectAttempts = 0;
   private reconnectionBuffer: Array<{ deviceId: string; data: object }> = [];
   private connected = false;
+  private pendingAckResolvers: Map<string, (msg: Record<string, unknown>) => void> = new Map();
 
   async connect(): Promise<void> {
+    if (this.ensureConnected()) return;
+    const wsUrl = getBackendWsUrl('/harmony/ws');
     return new Promise((resolve, reject) => {
       try {
-        this.ws = new WebSocket(WS_URL);
+        this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
           this.connected = true;
-          this.reconnectAttempts = 0;
           this.startHeartbeat();
           this.flushReconnectionBuffer();
           this.flushCachedBuffer();
@@ -101,8 +102,15 @@ export class WebSocketNearLinkSim implements INearLinkAdapter {
           try {
             const msg = JSON.parse(event.data);
             if (msg.type === 'heartbeat_ack') return;
+
+            const resolver = this.pendingAckResolvers.get(msg.type);
+            if (resolver) {
+              this.pendingAckResolvers.delete(msg.type);
+              resolver(msg);
+            }
+
             if (msg.type === 'data_received' && msg.payload) {
-              this.dataCallbacks.forEach(cb => cb(msg.payload));
+              this.dataCallbacks.forEach((cb) => cb(msg.payload));
             }
             if (msg.type === 'state_changed' && msg.device_id) {
               this.deviceStates.set(msg.device_id, msg.state as ConnectionState);
@@ -116,17 +124,29 @@ export class WebSocketNearLinkSim implements INearLinkAdapter {
           this.connected = false;
           this.stopHeartbeat();
           this.cacheReconnectionBuffer();
-          this.attemptReconnect();
         };
 
         this.ws.onerror = () => {
           if (!this.connected) {
-            reject(new Error('WebSocket connection failed'));
+            reject(new Error(`WebSocket 连接失败 (${wsUrl})`));
           }
         };
       } catch (e) {
         reject(e);
       }
+    });
+  }
+
+  private waitForAck(expectedType: string, timeoutMs = 2000): Promise<Record<string, unknown> | null> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.pendingAckResolvers.delete(expectedType);
+        resolve(null);
+      }, timeoutMs);
+      this.pendingAckResolvers.set(expectedType, (msg) => {
+        clearTimeout(timer);
+        resolve(msg);
+      });
     });
   }
 
@@ -176,22 +196,11 @@ export class WebSocketNearLinkSim implements INearLinkAdapter {
     }
   }
 
-  private attemptReconnect(): void {
-    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
-    this.reconnectAttempts++;
-    setTimeout(() => {
-      this.connect().catch(() => {
-        // reconnect failed, will retry
-      });
-    }, this.reconnectAttempts * 2000);
-  }
-
   private flushReconnectionBuffer(): void {
     while (this.reconnectionBuffer.length > 0) {
       const item = this.reconnectionBuffer.shift()!;
       this.sendData(item.deviceId, item.data).catch(() => {
         this.reconnectionBuffer.push(item);
-        break;
       });
     }
   }
@@ -207,26 +216,66 @@ export class WebSocketNearLinkSim implements INearLinkAdapter {
   }
 
   async discoverDevices(): Promise<HarmonyDevice[]> {
-    this.send({ type: 'discover' });
-    const mockDevices: HarmonyDevice[] = [
+    // 1. Prefer live WebSocket discover if connected
+    if (this.ensureConnected()) {
+      const ackPromise = this.waitForAck('device_discovered', 1800);
+      this.send({ type: 'discover' });
+      const ack = await ackPromise;
+      if (ack && Array.isArray(ack.devices)) {
+        const devices = ack.devices as HarmonyDevice[];
+        devices.forEach((d) => this.deviceStates.set(d.device_id, d.connection_status));
+        return devices;
+      }
+    }
+
+    // 2. Fallback to REST /api/harmony/discover
+    try {
+      const res = await fetch(`${BACKEND_URL}/harmony/discover`, { method: 'POST' });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json?.devices)) {
+          const devices = json.devices as HarmonyDevice[];
+          devices.forEach((d) => this.deviceStates.set(d.device_id, d.connection_status));
+          return devices;
+        }
+      }
+    } catch {
+      // ignore and fall back to offline presets
+    }
+
+    const fallbackDevices: HarmonyDevice[] = [
       { device_id: 'harmony-tablet-001', device_name: 'MatePad Pro', device_type: 'tablet', connection_status: 'discovered' },
       { device_id: 'harmony-screen-001', device_name: '华为智慧屏 V5', device_type: 'smart_screen', connection_status: 'discovered' },
       { device_id: 'harmony-pc-001', device_name: 'MateBook X Pro', device_type: 'pc', connection_status: 'discovered' },
     ];
-    mockDevices.forEach(d => this.deviceStates.set(d.device_id, d.connection_status));
-    return mockDevices;
+    fallbackDevices.forEach((d) => this.deviceStates.set(d.device_id, d.connection_status));
+    return fallbackDevices;
   }
 
   async pairDevice(deviceId: string): Promise<boolean> {
     this.deviceStates.set(deviceId, 'pairing');
-    this.send({ type: 'pair', device_id: deviceId });
+    if (this.ensureConnected()) {
+      const ackPromise = this.waitForAck('pair_result', 1800);
+      this.send({ type: 'pair', device_id: deviceId });
+      const ack = await ackPromise;
+      const ok = Boolean(ack?.success ?? true);
+      this.deviceStates.set(deviceId, ok ? 'discovered' : 'disconnected');
+      return ok;
+    }
     this.deviceStates.set(deviceId, 'discovered');
     return true;
   }
 
   async establishChannel(deviceId: string): Promise<boolean> {
+    if (this.ensureConnected()) {
+      const ackPromise = this.waitForAck('channel_established', 1800);
+      this.send({ type: 'establish_channel', device_id: deviceId });
+      const ack = await ackPromise;
+      const ok = Boolean(ack?.success ?? true);
+      this.deviceStates.set(deviceId, ok ? 'connected' : 'disconnected');
+      return ok;
+    }
     this.deviceStates.set(deviceId, 'connected');
-    this.send({ type: 'establish_channel', device_id: deviceId });
     return true;
   }
 
@@ -237,9 +286,11 @@ export class WebSocketNearLinkSim implements INearLinkAdapter {
       return false;
     }
     this.deviceStates.set(deviceId, 'syncing');
+    const ackPromise = this.waitForAck('data_sent', 1800);
     this.send({ type: 'send_data', device_id: deviceId, payload: data });
+    const ack = await ackPromise;
     this.deviceStates.set(deviceId, 'connected');
-    return true;
+    return Boolean(ack?.success ?? true);
   }
 
   onDataReceived(callback: (data: object) => void): void {
